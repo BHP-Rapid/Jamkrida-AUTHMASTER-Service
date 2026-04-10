@@ -1,0 +1,147 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Tests\TestCase;
+
+class AdminAuthControllerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Schema::table('users', function (Blueprint $table): void {
+            if (! Schema::hasColumn('users', 'deleted_at')) {
+                $table->softDeletes();
+            }
+            if (! Schema::hasColumn('users', 'user_id')) {
+                $table->unsignedBigInteger('user_id')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'role')) {
+                $table->string('role')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'status')) {
+                $table->string('status')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'status_approval')) {
+                $table->string('status_approval')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'is_delete')) {
+                $table->boolean('is_delete')->default(false);
+            }
+            if (! Schema::hasColumn('users', 'login_attempts')) {
+                $table->integer('login_attempts')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'suspend_until')) {
+                $table->dateTime('suspend_until')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'last_login')) {
+                $table->dateTime('last_login')->nullable();
+            }
+        });
+
+        if (! Schema::hasTable('setting_product_dtl')) {
+            Schema::create('setting_product_dtl', function (Blueprint $table): void {
+                $table->id();
+                $table->unsignedBigInteger('hdr_id')->nullable();
+                $table->unsignedBigInteger('product_id')->nullable();
+                $table->string('lampiran')->nullable();
+                $table->string('reason_claim')->nullable();
+                $table->string('key')->unique();
+                $table->string('value')->nullable();
+                $table->boolean('is_mandatory')->default(false);
+                $table->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('otp_verification')) {
+            Schema::create('otp_verification', function (Blueprint $table): void {
+                $table->id();
+                $table->string('user_id');
+                $table->string('email');
+                $table->string('otp');
+                $table->dateTime('valid_before');
+                $table->timestamps();
+            });
+        }
+    }
+
+    public function test_login_admin_sends_otp_for_approved_active_user(): void
+    {
+        Mail::fake();
+
+        \App\Models\SettingProductDetail::query()->create(['key' => 'OTP_DURATION_GENERAL_SETTINGS', 'value' => '300']);
+        \App\Models\SettingProductDetail::query()->create(['key' => 'RESENT_OTP_INTERVAL_GENERAL_SETTINGS', 'value' => '60']);
+        \App\Models\SettingProductDetail::query()->create(['key' => 'MAX_FAILED_LOGIN_ATTEMP_GENERAL_SETTINGS', 'value' => '3']);
+        \App\Models\SettingProductDetail::query()->create(['key' => 'FAILED_LOGIN_SUSPENDED_GENERAL_SETTINGS', 'value' => '60']);
+
+        User::factory()->create([
+            'user_id' => 1001,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'status' => 'active',
+            'status_approval' => 'approved',
+            'is_delete' => false,
+        ]);
+
+        $response = $this->postJson('/api/public/auth/admin/login', [
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'OTP telah dikirim ke email Anda.',
+                'data' => [
+                    'user_id' => 1001,
+                    'email' => 'admin@example.com',
+                    'role' => 'admin',
+                    'resentOTP' => 60,
+                ],
+            ]);
+    }
+
+    public function test_verify_admin_otp_returns_jwt_token(): void
+    {
+        $user = User::factory()->create([
+            'user_id' => 1001,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'status' => 'active',
+            'status_approval' => 'approved',
+        ]);
+
+        \App\Models\OTPVerification::query()->create([
+            'user_id' => 1001,
+            'email' => 'admin@example.com',
+            'otp' => '12345',
+            'valid_before' => now()->addMinutes(5),
+        ]);
+
+        $response = $this->postJson('/api/public/auth/admin/verify-otp', [
+            'user_id' => 1001,
+            'otp' => '12345',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.user_id', 1001)
+            ->assertJsonPath('data.user.email', 'admin@example.com');
+
+        $this->assertIsString($response->json('data.token'));
+    }
+}
