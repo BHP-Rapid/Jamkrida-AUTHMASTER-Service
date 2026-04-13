@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AdminAuthControllerTest extends TestCase
 {
@@ -139,6 +140,33 @@ class AdminAuthControllerTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.user_id', 1001)
+            ->assertJsonPath('data.user.email', 'admin@example.com');
+
+        $this->assertIsString($response->json('data.token'));
+    }
+
+    public function test_refresh_admin_token_returns_new_token_payload(): void
+    {
+        $user = User::factory()->create([
+            'user_id' => 1001,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'status' => 'active',
+            'status_approval' => 'approved',
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withToken($token)
+            ->postJson('/api/public/auth/refresh');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Refresh token berhasil.')
             ->assertJsonPath('data.user.user_id', 1001)
             ->assertJsonPath('data.user.email', 'admin@example.com');
 

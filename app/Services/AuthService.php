@@ -2,16 +2,22 @@
 
 namespace App\Services;
 
+use App\Mail\ResendEmailforResetPasswordMail;
 use App\Mail\SendOtpToMitra;
 use App\Repositories\OTPVerificationRepository;
 use App\Repositories\SettingProductDetailRepository;
+use App\Repositories\UrlVerificationRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\UserMitraRepository;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Tymon\JWTAuth\Exceptions\JWTException;
+use Tymon\JWTAuth\Exceptions\TokenExpiredException;
+use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthService
@@ -21,6 +27,7 @@ class AuthService
         protected UserMitraRepository $userMitraRepository,
         protected OTPVerificationRepository $otpVerificationRepository,
         protected SettingProductDetailRepository $settingProductDetailRepository,
+        protected UrlVerificationRepository $urlVerificationRepository,
     ) {
     }
 
@@ -230,18 +237,7 @@ class AuthService
             'success' => true,
             'message' => 'Verifikasi OTP berhasil.',
             'status' => 200,
-            'data' => [
-                'token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => (int) config('jwt.ttl', 60) * 60,
-                'user' => [
-                    'id' => $user->id,
-                    'user_id' => $user->user_id ?? $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                ],
-            ],
+            'data' => $this->buildTokenPayload($user, $token),
         ];
     }
 
@@ -436,18 +432,188 @@ class AuthService
             'success' => true,
             'message' => 'Verifikasi OTP mitra berhasil.',
             'status' => 200,
+            'data' => $this->buildTokenPayload($user, $token),
+        ];
+    }
+
+    public function refreshToken(): array
+    {
+        try {
+            $currentToken = JWTAuth::getToken();
+
+            if (! $currentToken) {
+                return [
+                    'success' => false,
+                    'message' => 'Unauthorized: token missing.',
+                    'status' => 401,
+                ];
+            }
+
+            $payload = JWTAuth::setToken($currentToken)->getPayload();
+            $authType = (string) $payload->get('auth_type', 'admin');
+            $subject = $payload->get('sub');
+
+            $user = match ($authType) {
+                'mitra' => $this->userMitraRepository->findById($subject),
+                default => $this->userRepository->findById($subject),
+            };
+
+            if (! $user) {
+                return [
+                    'success' => false,
+                    'message' => 'Unauthorized: user not found.',
+                    'status' => 401,
+                ];
+            }
+
+            $newToken = JWTAuth::setToken($currentToken)->refresh();
+
+            return [
+                'success' => true,
+                'message' => 'Refresh token berhasil.',
+                'status' => 200,
+                'data' => $this->buildTokenPayload($user, $newToken),
+            ];
+        } catch (TokenExpiredException) {
+            return [
+                'success' => false,
+                'message' => 'Unauthorized: token expired.',
+                'status' => 401,
+            ];
+        } catch (TokenInvalidException) {
+            return [
+                'success' => false,
+                'message' => 'Unauthorized: token invalid.',
+                'status' => 401,
+            ];
+        } catch (JWTException) {
+            return [
+                'success' => false,
+                'message' => 'Unauthorized: token missing.',
+                'status' => 401,
+            ];
+        }
+    }
+
+    public function validateResetUrl(string $urlKey, string $userType): array
+    {
+        $record = $this->urlVerificationRepository->findByUrlKey($urlKey);
+
+        if (! $record || Carbon::parse($record->valid_before)->isPast()) {
+            return [
+                'success' => false,
+                'message' => 'Link tidak valid atau telah kadaluarsa.',
+                'status' => 400,
+            ];
+        }
+
+        $user = match ($userType) {
+            'admin' => $this->userRepository->findByUserId($record->user_id),
+            'mitra' => $this->userMitraRepository->findByUserId((string) $record->user_id),
+            default => null,
+        };
+
+        if (! $user) {
+            return [
+                'success' => false,
+                'message' => 'User tidak ditemukan.',
+                'status' => 404,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Link valid, silakan lanjutkan reset password.',
+            'status' => 200,
             'data' => [
-                'token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => (int) config('jwt.ttl', 60) * 60,
-                'user' => [
-                    'id' => $user->id,
-                    'user_id' => $user->user_id,
-                    'mitra_id' => $user->mitra_id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                ],
+                'user_id' => $user->user_id ?? $user->id,
+                'email' => $user->email,
+            ],
+        ];
+    }
+
+    public function resetPassword(array $payload): array
+    {
+        $user = match ($payload['user_type']) {
+            'admin' => $this->userRepository->findByUserId($payload['user_id']),
+            'mitra' => $this->userMitraRepository->findByUserId((string) $payload['user_id']),
+            default => null,
+        };
+
+        if (! $user) {
+            return [
+                'success' => false,
+                'message' => 'User tidak ditemukan.',
+                'status' => 404,
+            ];
+        }
+
+        $hashedPassword = Hash::make((string) $payload['password']);
+
+        match ($payload['user_type']) {
+            'admin' => $this->userRepository->updatePassword($user, $hashedPassword),
+            'mitra' => $this->userMitraRepository->updatePassword($user, $hashedPassword),
+        };
+
+        return [
+            'success' => true,
+            'message' => 'Password berhasil diperbarui, Silahkan login kembali.',
+            'status' => 200,
+        ];
+    }
+
+    public function resendResetPasswordEmail(array $payload): array
+    {
+        $user = match ($payload['user_type']) {
+            'admin' => isset($payload['email']) ? $this->userRepository->findByEmail((string) $payload['email']) : null,
+            'mitra' => isset($payload['user_id']) ? $this->userMitraRepository->findByUserId((string) $payload['user_id']) : null,
+            default => null,
+        };
+
+        if (! $user) {
+            return [
+                'success' => false,
+                'message' => 'User tidak ditemukan.',
+                'status' => 404,
+            ];
+        }
+
+        $urlKey = (string) Str::uuid();
+
+        $this->urlVerificationRepository->create([
+            'user_id' => $user->user_id ?? $user->id,
+            'url_key' => $urlKey,
+            'valid_before' => now()->addHours(24),
+            'created_at' => now(),
+        ]);
+
+        Mail::to($user->email)->send(new ResendEmailforResetPasswordMail(
+            $urlKey,
+            $user->name,
+            (string) ($user->role ?? ''),
+            (string) $payload['user_type'],
+        ));
+
+        return [
+            'success' => true,
+            'message' => "Please check the email address {$user->email} for instructions to reset your password.",
+            'status' => 200,
+        ];
+    }
+
+    protected function buildTokenPayload(object $user, string $token): array
+    {
+        return [
+            'token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => (int) config('jwt.ttl', 60) * 60,
+            'user' => [
+                'id' => $user->id,
+                'user_id' => $user->user_id ?? $user->id,
+                'mitra_id' => $user->mitra_id ?? null,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
             ],
         ];
     }

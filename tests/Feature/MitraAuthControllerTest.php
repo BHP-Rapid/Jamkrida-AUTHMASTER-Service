@@ -163,6 +163,36 @@ class MitraAuthControllerTest extends TestCase
         $this->assertIsString($response->json('data.token'));
     }
 
+    public function test_refresh_mitra_token_returns_new_token_payload(): void
+    {
+        $user = UserMitra::query()->create([
+            'user_id' => 'MTR001',
+            'mitra_id' => 2001,
+            'name' => 'Mitra User',
+            'email' => 'mitra@example.com',
+            'password' => 'secret123',
+            'role' => 'mitra',
+            'status' => 'active',
+            'statusApproval' => 'approved',
+            'is_delete' => false,
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withToken($token)
+            ->postJson('/api/public/auth/refresh');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Refresh token berhasil.')
+            ->assertJsonPath('data.user.user_id', 'MTR001')
+            ->assertJsonPath('data.user.email', 'mitra@example.com')
+            ->assertJsonPath('data.user.mitra_id', 2001);
+
+        $this->assertIsString($response->json('data.token'));
+    }
+
     public function test_ensure_mitra_middleware_allows_mitra_token_and_blocks_admin_token(): void
     {
         Schema::table('users', function (Blueprint $table): void {
