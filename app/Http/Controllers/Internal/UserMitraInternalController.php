@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Internal;
 
-use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Internal\Concerns\RespondsWithServiceResult;
 use App\Http\Requests\User\ChangeMitraPasswordRequest;
 use App\Http\Requests\User\CreateMitraUserRequest;
 use App\Http\Requests\User\MitraRegisterRequest;
@@ -14,8 +14,10 @@ use App\Http\Requests\User\UpdateMitraUserStatusRequest;
 use App\Services\UserMitraService;
 use Illuminate\Http\Request;
 
-class UserMitraController extends Controller
+class UserMitraInternalController extends Controller
 {
+    use RespondsWithServiceResult;
+
     public function __construct(
         protected UserMitraService $userMitraService,
     ) {
@@ -31,10 +33,14 @@ class UserMitraController extends Controller
         $result = $this->userMitraService->getUsersByRole($request->validated());
 
         if (! $result['success']) {
-            return ApiResponse::error($result['message'], $result['status']);
+            return $this->errorResponse($result['message'], $result['status']);
         }
 
-        return response()->json($result['data'], $result['status']);
+        return $this->successResponse(
+            data: $result['data'],
+            message: $result['message'] ?? 'Users retrieved successfully',
+            status: $result['status'],
+        );
     }
 
     public function getDataVerification(Request $request)
@@ -42,13 +48,14 @@ class UserMitraController extends Controller
         $result = $this->userMitraService->getDataVerification($request->user());
 
         if (! $result['success']) {
-            return ApiResponse::error($result['message'], $result['status']);
+            return $this->errorResponse($result['message'], $result['status']);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $result['data'],
-        ], $result['status']);
+        return $this->successResponse(
+            data: $result['data'],
+            message: $result['message'] ?? 'Data verification retrieved successfully',
+            status: $result['status'],
+        );
     }
 
     public function store(CreateMitraUserRequest $request)
@@ -61,9 +68,7 @@ class UserMitraController extends Controller
 
     public function storeRegister(MitraRegisterRequest $request)
     {
-        return $this->respond($this->userMitraService->storeRegister(
-            $request->validated(),
-        ));
+        return $this->respond($this->userMitraService->storeRegister($request->validated()));
     }
 
     public function uploadExcel(Request $request)
@@ -71,16 +76,18 @@ class UserMitraController extends Controller
         $result = $this->userMitraService->uploadExcel($request->all());
 
         if (! $result['success'] && ($result['status'] ?? 200) !== 200) {
-            return ApiResponse::error($result['message'], $result['status']);
+            return $this->errorResponse($result['message'], $result['status']);
         }
 
-        return response()->json([
-            'success' => $result['success'],
-            'inserted_count' => $result['data']['inserted_count'] ?? 0,
-            'failed' => $result['data']['failed'] ?? [],
-            'data' => $result['data']['data'] ?? [],
-            'message' => $result['message'],
-        ], $result['status']);
+        return $this->successResponse(
+            data: $result['data']['data'] ?? [],
+            message: $result['message'],
+            status: $result['status'],
+            extra: [
+                'inserted_count' => $result['data']['inserted_count'] ?? 0,
+                'failed' => $result['data']['failed'] ?? [],
+            ],
+        );
     }
 
     public function getDataById(string $userId)
@@ -88,16 +95,17 @@ class UserMitraController extends Controller
         $result = $this->userMitraService->getDataById($userId);
 
         if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'],
-            ], $result['status']);
+            return $this->errorResponse(
+                message: $result['message'],
+                status: $result['status'],
+            );
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $result['data'],
-        ], $result['status']);
+        return $this->successResponse(
+            data: $result['data'],
+            message: $result['message'] ?? 'User mitra berhasil diambil',
+            status: $result['status'],
+        );
     }
 
     public function updateByUserId(UpdateMitraUserRequest $request, string $userId)
@@ -141,23 +149,5 @@ class UserMitraController extends Controller
             request()->user(),
             $userId,
         ));
-    }
-
-    protected function respond(array $result)
-    {
-        if (! $result['success']) {
-            return ApiResponse::error(
-                message: $result['message'],
-                status: $result['status'],
-                errors: $result['errors'] ?? [],
-                data: $result['data'] ?? null,
-            );
-        }
-
-        return ApiResponse::success(
-            data: $result['data'] ?? null,
-            message: $result['message'],
-            status: $result['status'],
-        );
     }
 }

@@ -51,4 +51,10 @@ return [
         'token' => env('INTERNAL_SERVICE_TOKEN'),
     ],
 
+    'creatio' => [
+        'url' => env('CREATIO_URL'),
+        'username' => env('CREATIO_USERNAME'),
+        'password' => env('CREATIO_PASSWORD'),
+    ],
+
 ];

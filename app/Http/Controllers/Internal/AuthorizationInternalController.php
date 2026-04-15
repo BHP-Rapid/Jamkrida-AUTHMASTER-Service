@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers\Internal;
 
-use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Internal\Concerns\RespondsWithServiceResult;
 use App\Services\InternalAuthorizationService;
 use Illuminate\Http\Request;
 
 class AuthorizationInternalController extends Controller
 {
+    use RespondsWithServiceResult;
+
     public function __construct(
         protected InternalAuthorizationService $internalAuthorizationService,
     ) {
@@ -25,7 +27,7 @@ class AuthorizationInternalController extends Controller
         $data = $this->internalAuthorizationService->getUserContext($resolvedUserId);
 
         if (! $data) {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'User context tidak ditemukan.',
                 status: 404,
                 errors: [
@@ -34,7 +36,7 @@ class AuthorizationInternalController extends Controller
             );
         }
 
-        return ApiResponse::success(
+        return $this->successResponse(
             data: $data,
             message: 'User context berhasil diambil.',
         );
@@ -63,7 +65,7 @@ class AuthorizationInternalController extends Controller
         );
 
         if (! $result) {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'User context tidak ditemukan.',
                 status: 404,
                 errors: [
@@ -72,7 +74,7 @@ class AuthorizationInternalController extends Controller
             );
         }
 
-        return ApiResponse::success(
+        return $this->successResponse(
             data: $result,
             message: 'Permission check berhasil diproses.',
         );
@@ -98,7 +100,7 @@ class AuthorizationInternalController extends Controller
         );
 
         if (! $result) {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'User context tidak ditemukan.',
                 status: 404,
                 errors: [
@@ -107,7 +109,7 @@ class AuthorizationInternalController extends Controller
             );
         }
 
-        return ApiResponse::success(
+        return $this->successResponse(
             data: $result,
             message: 'Role check berhasil diproses.',
         );
@@ -118,14 +120,14 @@ class AuthorizationInternalController extends Controller
         $forwardedUserId = (string) $request->attributes->get('forwarded_user_id', '');
 
         if ($forwardedUserId === '') {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'Unauthorized: forwarded user context missing.',
                 status: 401,
             );
         }
 
         if ($requestedUserId !== null && (string) $requestedUserId !== '' && (string) $requestedUserId !== $forwardedUserId) {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'Forbidden: requested user does not match forwarded token.',
                 status: 403,
             );

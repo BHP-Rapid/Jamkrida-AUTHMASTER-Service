@@ -59,15 +59,22 @@ class UserMitraService
 
     public function getDataVerification(object $actor): array
     {
-        if (($actor->role ?? null) !== 'super_admin' && empty($actor->mitra_id)) {
-            Log::warning('User mitra verification retrieval failed: mitra not found', [
-                'actor_user_id' => $actor->user_id ?? null,
-                'actor_role' => $actor->role ?? null,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
+        if (($actor->role ?? null) !== 'super_admin') {
+            $tenant = ! empty($actor->mitra_id)
+                ? $this->findTenantMitra((string) $actor->mitra_id)
+                : null;
 
-            return ['success' => false, 'message' => 'Mitra not found', 'status' => 404];
+            if (! $tenant) {
+                Log::warning('User mitra verification retrieval failed: mitra not found', [
+                    'actor_user_id' => $actor->user_id ?? null,
+                    'actor_role' => $actor->role ?? null,
+                    'actor_mitra_id' => $actor->mitra_id ?? null,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+
+                return ['success' => false, 'message' => 'Mitra not found', 'status' => 404];
+            }
         }
 
         $results = $this->userMitraRepository->findVerificationUsersForActor($actor);
@@ -96,6 +103,12 @@ class UserMitraService
         $tenant = $this->findTenantMitra((string) $payload['mitra_id']);
 
         if (! $tenant) {
+            Log::warning('User mitra create failed: mitra not found', [
+                'payload' => $payload,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
             return ['success' => false, 'message' => 'Mitra not found', 'status' => 404];
         }
 
@@ -103,7 +116,10 @@ class UserMitraService
 
         try {
             $insertPayload = [
-                'user_id' => $this->generateUserId((string) $tenant->mitra_id, (string) ($tenant->alias ?: $tenant->mitra_id)),
+                'user_id' => $this->generateUserId(
+                    (string) $tenant->mitra_id,
+                    (string) ($tenant->alias ?: $tenant->mitra_id),
+                ),
                 'mitra_id' => $tenant->mitra_id,
                 'role' => $payload['role'],
                 'email' => $payload['email'],
@@ -169,7 +185,10 @@ class UserMitraService
 
         try {
             $insertPayload = [
-                'user_id' => $this->generateUserId((string) $tenant->mitra_id, (string) ($tenant->alias ?: $tenant->mitra_id)),
+                'user_id' => $this->generateUserId(
+                    (string) $tenant->mitra_id,
+                    (string) ($tenant->alias ?: $tenant->mitra_id),
+                ),
                 'mitra_id' => $tenant->mitra_id,
                 'role' => $payload['role'],
                 'email' => $payload['email'],
@@ -265,10 +284,16 @@ class UserMitraService
                     continue;
                 }
 
-                $validated['user_id'] = $this->generateUserId(
-                    (string) $tenant->mitra_id,
-                    (string) ($tenant->alias ?: $tenant->mitra_id),
-                );
+                $latestUserId = $this->userMitraRepository->findLatestUserIdByMitraId((string) $tenant->mitra_id);
+
+                if ($latestUserId && preg_match('/(\d+)$/', $latestUserId, $matches)) {
+                    $lastNumber = (int) $matches[1];
+                    $numberLength = strlen($matches[1]);
+                    $nextNumber = str_pad((string) ($lastNumber + 1), $numberLength, '0', STR_PAD_LEFT);
+                    $validated['user_id'] = preg_replace('/\d+$/', $nextNumber, $latestUserId);
+                } else {
+                    $validated['user_id'] = $validated['mitra_id'].'001';
+                }
 
                 $inserted[] = $this->userMitraRepository->create($validated);
             } catch (\Illuminate\Validation\ValidationException $exception) {
@@ -548,7 +573,7 @@ class UserMitraService
     {
         $year = now()->format('Y');
         $userCount = $this->userMitraRepository->countByMitraId($mitraId);
-        $prefix = strtoupper($alias);
+        $prefix = $alias;
 
         do {
             $userCount++;

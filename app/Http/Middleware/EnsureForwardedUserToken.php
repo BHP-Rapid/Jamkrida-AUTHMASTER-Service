@@ -49,6 +49,7 @@ class EnsureForwardedUserToken
                 );
             }
 
+            $request->setUserResolver(static fn () => $user);
             $request->attributes->set('forwarded_user', $user);
             $request->attributes->set('forwarded_auth_type', $authType);
             $request->attributes->set('forwarded_user_id', (string) ($payload->get('user_id') ?? $user->user_id ?? $user->getKey()));

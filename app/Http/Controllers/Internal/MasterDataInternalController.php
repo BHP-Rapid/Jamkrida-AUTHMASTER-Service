@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Internal;
 
-use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Internal\Concerns\RespondsWithServiceResult;
 use App\Http\Requests\Master\LampiranMappingRequest;
 use App\Http\Requests\Master\MappingValueTableRequest;
 use App\Http\Requests\Master\RegionLookupRequest;
@@ -11,6 +11,8 @@ use App\Services\MappingValueService;
 
 class MasterDataInternalController extends Controller
 {
+    use RespondsWithServiceResult;
+
     public function __construct(
         protected MappingValueService $mappingValueService,
     ) {
@@ -59,23 +61,5 @@ class MasterDataInternalController extends Controller
     public function villages(RegionLookupRequest $request)
     {
         return $this->respond($this->mappingValueService->getVillage($request->validated()));
-    }
-
-    protected function respond(array $result)
-    {
-        if (! $result['success']) {
-            return ApiResponse::error(
-                message: $result['message'],
-                status: $result['status'],
-                errors: $result['errors'] ?? [],
-                data: $result['data'] ?? null,
-            );
-        }
-
-        return ApiResponse::success(
-            data: $result['data'] ?? null,
-            message: $result['message'],
-            status: $result['status'],
-        );
     }
 }

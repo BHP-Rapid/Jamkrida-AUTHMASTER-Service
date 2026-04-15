@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Internal;
 
-use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Internal\Concerns\RespondsWithServiceResult;
 use App\Services\UserService;
 
 class UserInternalController extends Controller
 {
+    use RespondsWithServiceResult;
+
     public function __construct(
         protected UserService $userService,
     ) {
@@ -18,7 +20,7 @@ class UserInternalController extends Controller
         $data = $this->userService->findById($user);
 
         if (! $data) {
-            return ApiResponse::error(
+            return $this->errorResponse(
                 message: 'User tidak ditemukan.',
                 status: 404,
                 errors: [
@@ -27,7 +29,7 @@ class UserInternalController extends Controller
             );
         }
 
-        return ApiResponse::success(
+        return $this->successResponse(
             data: $data,
             message: 'User berhasil diambil.',
         );

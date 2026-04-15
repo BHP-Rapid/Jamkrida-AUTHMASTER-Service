@@ -23,6 +23,15 @@ class UserMitraRepository
             ->first();
     }
 
+    public function findPublicIdentityByUserId(string $userId): ?object
+    {
+        return UserMitra::query()
+            ->select(['user_mitra.user_id', 'm.mitra_id'])
+            ->leftJoin('mitra as m', 'user_mitra.mitra_id', '=', 'm.mitra_id')
+            ->where('user_mitra.user_id', $userId)
+            ->first();
+    }
+
     public function findForLoginByUserId(string $userId): ?UserMitra
     {
         return UserMitra::query()
@@ -195,7 +204,7 @@ class UserMitraRepository
 
         $query = UserMitra::query()
             ->leftJoin('tenant_mitra', 'tenant_mitra.mitra_id', '=', 'user_mitra.mitra_id')
-            ->whereRaw('LOWER(user_mitra.statusApproval) = ?', ['submitted'])
+            ->where('user_mitra.statusApproval', 'Submitted')
             ->select(
                 'user_mitra.name',
                 'user_mitra.email',
@@ -222,6 +231,14 @@ class UserMitraRepository
     public function countByMitraId(string $mitraId): int
     {
         return UserMitra::query()->where('mitra_id', $mitraId)->count();
+    }
+
+    public function findLatestUserIdByMitraId(string $mitraId): ?string
+    {
+        return UserMitra::query()
+            ->where('mitra_id', $mitraId)
+            ->orderBy('user_id', 'desc')
+            ->value('user_id');
     }
 
     public function existsByUserId(string $userId): bool

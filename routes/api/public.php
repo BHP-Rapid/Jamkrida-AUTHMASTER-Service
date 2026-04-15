@@ -1,14 +1,21 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\MitraController;
+use App\Http\Controllers\Api\NotifAdminController;
+use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\NotifController;
 use App\Http\Controllers\Api\UserAdminController;
 use App\Http\Controllers\Api\MappingValueController;
+use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\UserMitraController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('public')
     ->group(function (): void {
+        Route::get('/bank-values', [PublicController::class, 'index']);
+        Route::match(['get', 'post'], '/check-id', [PublicController::class, 'checkId']);
         Route::post('/auth/login', [AuthController::class, 'login']);
         Route::post('/auth/admin/login', [AuthController::class, 'loginAdmin']);
         Route::post('/auth/admin/verify-otp', [AuthController::class, 'verifyAdminOtp']);
@@ -18,6 +25,7 @@ Route::prefix('public')
         Route::get('/auth/reset-password/validate', [AuthController::class, 'validateResetUrl']);
         Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
         Route::post('/auth/reset-password/resend-email', [AuthController::class, 'resendResetPasswordEmail']);
+        Route::get('/settings/general', [SettingsController::class, 'showGeneralSettings']);
 
         Route::prefix('master')->middleware('jwt.auth')->group(function (): void {
             Route::get('/mapping-values', [MappingValueController::class, 'index']);
@@ -37,6 +45,39 @@ Route::prefix('public')
             Route::get('/access', [UserRoleController::class, 'getAccessByRole']);
             Route::put('/access', [UserRoleController::class, 'updateRole']);
             Route::get('/type/{roleType}', [UserRoleController::class, 'getRoleByType']);
+        });
+
+        Route::prefix('settings')->middleware('jwt.auth')->group(function (): void {
+            Route::get('/', [SettingsController::class, 'index']);
+            Route::get('/detail', [SettingsController::class, 'show']);
+            Route::get('/mitra/{mitraId}', [SettingsController::class, 'getSettingsByMitraId']);
+            Route::get('/menu', [SettingsController::class, 'showSettingsMenu']);
+            Route::get('/lampiran-menu', [SettingsController::class, 'getLampiranSettingsMenu']);
+            Route::post('/', [SettingsController::class, 'store']);
+            Route::put('/', [SettingsController::class, 'update']);
+            Route::patch('/mandatory', [SettingsController::class, 'updateMandatory']);
+        });
+
+        Route::prefix('mitra')->middleware('jwt.auth')->group(function (): void {
+            Route::get('/creatio', [MitraController::class, 'getMitraFromCreatio']);
+            Route::get('/data', [MitraController::class, 'getDataMitra']);
+            Route::get('/detail', [MitraController::class, 'getDataByMitraId']);
+            Route::post('/', [MitraController::class, 'store']);
+            Route::put('/', [MitraController::class, 'updateByMitraId']);
+        });
+
+        Route::prefix('notif')->middleware('jwt.auth')->group(function (): void {
+            Route::get('/', [NotifController::class, 'getNotif']);
+            Route::get('/count', [NotifController::class, 'countNotif']);
+            Route::patch('/', [NotifController::class, 'update']);
+            Route::patch('/all', [NotifController::class, 'updateAllNotif']);
+        });
+
+        Route::prefix('notif-admin')->middleware('jwt.auth')->group(function (): void {
+            Route::get('/', [NotifAdminController::class, 'index']);
+            Route::get('/mitra-recipient', [NotifAdminController::class, 'getMitraRecipient']);
+            Route::post('/', [NotifAdminController::class, 'createNotifAdmin']);
+            Route::get('/{id}', [NotifAdminController::class, 'getById']);
         });
 
         Route::post('/admin-users/register', [UserAdminController::class, 'storeRegister']);
