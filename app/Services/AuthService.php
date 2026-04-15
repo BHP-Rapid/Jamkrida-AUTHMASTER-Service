@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Mail\ResendEmailforResetPasswordMail;
 use App\Mail\SendOtpToMitra;
+use App\Models\User;
+use App\Models\UserMitra;
 use App\Repositories\OTPVerificationRepository;
+use App\Repositories\RefreshTokenRepository;
 use App\Repositories\SettingProductDetailRepository;
 use App\Repositories\UrlVerificationRepository;
 use App\Repositories\UserRepository;
@@ -26,6 +29,7 @@ class AuthService
         protected UserRepository $userRepository,
         protected UserMitraRepository $userMitraRepository,
         protected OTPVerificationRepository $otpVerificationRepository,
+        protected RefreshTokenRepository $refreshTokenRepository,
         protected SettingProductDetailRepository $settingProductDetailRepository,
         protected UrlVerificationRepository $urlVerificationRepository,
     ) {
@@ -230,14 +234,13 @@ class AuthService
             ];
         }
 
-        $token = JWTAuth::fromUser($user);
         $this->otpVerificationRepository->deleteById($otpRecord->getKey());
 
         return [
             'success' => true,
             'message' => 'Verifikasi OTP berhasil.',
             'status' => 200,
-            'data' => $this->buildTokenPayload($user, $token),
+            'data' => $this->issueTokenPair($user),
         ];
     }
 
@@ -425,21 +428,28 @@ class AuthService
             ];
         }
 
-        $token = JWTAuth::fromUser($user);
         $this->otpVerificationRepository->deleteById($otpRecord->getKey());
 
         return [
             'success' => true,
             'message' => 'Verifikasi OTP mitra berhasil.',
             'status' => 200,
-            'data' => $this->buildTokenPayload($user, $token),
+            'data' => $this->issueTokenPair($user),
         ];
     }
 
-    public function refreshToken(): array
+    public function refreshToken(array $payload = [], ?string $currentAccessToken = null): array
     {
+        $refreshToken = (string) ($payload['refresh_token'] ?? '');
+
+        if ($refreshToken !== '') {
+            return $this->refreshUsingStoredToken($refreshToken);
+        }
+
         try {
-            $currentToken = JWTAuth::getToken();
+            $currentToken = ($currentAccessToken !== null && $currentAccessToken !== '')
+                ? $currentAccessToken
+                : JWTAuth::getToken();
 
             if (! $currentToken) {
                 return [
@@ -467,12 +477,13 @@ class AuthService
             }
 
             $newToken = JWTAuth::setToken($currentToken)->refresh();
+            $newRefreshToken = $this->createRefreshTokenForUser($user);
 
             return [
                 'success' => true,
                 'message' => 'Refresh token berhasil.',
                 'status' => 200,
-                'data' => $this->buildTokenPayload($user, $newToken),
+                'data' => $this->buildTokenPayload($user, $newToken, $newRefreshToken),
             ];
         } catch (TokenExpiredException) {
             return [
@@ -601,12 +612,24 @@ class AuthService
         ];
     }
 
-    protected function buildTokenPayload(object $user, string $token): array
+    protected function issueTokenPair(object $user): array
+    {
+        $accessToken = JWTAuth::fromUser($user);
+        $refreshToken = $this->createRefreshTokenForUser($user);
+
+        return $this->buildTokenPayload($user, $accessToken, $refreshToken);
+    }
+
+    protected function buildTokenPayload(object $user, string $accessToken, ?string $refreshToken = null): array
     {
         return [
-            'token' => $token,
+            'token' => $accessToken,
+            'access_token' => $accessToken,
             'token_type' => 'bearer',
             'expires_in' => (int) config('jwt.ttl', 60) * 60,
+            'access_token_expires_in' => (int) config('jwt.ttl', 60) * 60,
+            'refresh_token' => $refreshToken,
+            'refresh_token_expires_in' => $this->getRefreshTokenTtlInMinutes() * 60,
             'user' => [
                 'id' => $user->id,
                 'user_id' => $user->user_id ?? $user->id,
@@ -616,5 +639,85 @@ class AuthService
                 'role' => $user->role,
             ],
         ];
+    }
+
+    protected function createRefreshTokenForUser(object $user): string
+    {
+        $plainTextToken = bin2hex(random_bytes(48));
+
+        $this->refreshTokenRepository->create([
+            'token_hash' => $this->refreshTokenRepository->hashToken($plainTextToken),
+            'auth_type' => $this->resolveAuthTypeForUser($user),
+            'subject_id' => (string) $user->getKey(),
+            'user_id' => (string) ($user->user_id ?? $user->getKey()),
+            'expires_at' => now()->addMinutes($this->getRefreshTokenTtlInMinutes()),
+        ]);
+
+        return $plainTextToken;
+    }
+
+    protected function refreshUsingStoredToken(string $refreshToken): array
+    {
+        $storedToken = $this->refreshTokenRepository->findActiveByPlainTextToken($refreshToken);
+
+        if (! $storedToken) {
+            return [
+                'success' => false,
+                'message' => 'Unauthorized: refresh token invalid or expired.',
+                'status' => 401,
+            ];
+        }
+
+        $user = $this->resolveUserByAuthContext($storedToken->auth_type, $storedToken->subject_id);
+
+        if (! $user) {
+            $this->refreshTokenRepository->revoke($storedToken);
+
+            return [
+                'success' => false,
+                'message' => 'Unauthorized: user not found.',
+                'status' => 401,
+            ];
+        }
+
+        return DB::transaction(function () use ($storedToken, $user): array {
+            $accessToken = JWTAuth::fromUser($user);
+            $newRefreshToken = bin2hex(random_bytes(48));
+
+            $replacementToken = $this->refreshTokenRepository->create([
+                'token_hash' => $this->refreshTokenRepository->hashToken($newRefreshToken),
+                'auth_type' => $storedToken->auth_type,
+                'subject_id' => (string) $storedToken->subject_id,
+                'user_id' => (string) ($user->user_id ?? $user->getKey()),
+                'expires_at' => now()->addMinutes($this->getRefreshTokenTtlInMinutes()),
+            ]);
+
+            $this->refreshTokenRepository->rotate($storedToken, $replacementToken);
+
+            return [
+                'success' => true,
+                'message' => 'Refresh token berhasil.',
+                'status' => 200,
+                'data' => $this->buildTokenPayload($user, $accessToken, $newRefreshToken),
+            ];
+        });
+    }
+
+    protected function resolveAuthTypeForUser(object $user): string
+    {
+        return $user instanceof UserMitra ? 'mitra' : 'admin';
+    }
+
+    protected function resolveUserByAuthContext(string $authType, int|string $subjectId): User|UserMitra|null
+    {
+        return match ($authType) {
+            'mitra' => $this->userMitraRepository->findById($subjectId),
+            default => $this->userRepository->findById($subjectId),
+        };
+    }
+
+    protected function getRefreshTokenTtlInMinutes(): int
+    {
+        return (int) config('auth.refresh_token_ttl', 43200);
     }
 }

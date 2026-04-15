@@ -144,6 +144,8 @@ class AdminAuthControllerTest extends TestCase
             ->assertJsonPath('data.user.email', 'admin@example.com');
 
         $this->assertIsString($response->json('data.token'));
+        $this->assertIsString($response->json('data.access_token'));
+        $this->assertIsString($response->json('data.refresh_token'));
     }
 
     public function test_refresh_admin_token_returns_new_token_payload(): void
@@ -171,5 +173,107 @@ class AdminAuthControllerTest extends TestCase
             ->assertJsonPath('data.user.email', 'admin@example.com');
 
         $this->assertIsString($response->json('data.token'));
+        $this->assertIsString($response->json('data.refresh_token'));
+    }
+
+    public function test_refresh_admin_token_accepts_refresh_token_payload(): void
+    {
+        $user = User::factory()->create([
+            'user_id' => 1001,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'status' => 'active',
+            'status_approval' => 'approved',
+        ]);
+
+        \App\Models\OTPVerification::query()->create([
+            'user_id' => 1001,
+            'email' => 'admin@example.com',
+            'otp' => '12345',
+            'valid_before' => now()->addMinutes(5),
+        ]);
+
+        $verifyResponse = $this->postJson('/api/public/auth/admin/verify-otp', [
+            'user_id' => 1001,
+            'otp' => '12345',
+        ]);
+
+        $refreshToken = $verifyResponse->json('data.refresh_token');
+
+        $response = $this->postJson('/api/public/auth/refresh', [
+            'refresh_token' => $refreshToken,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Refresh token berhasil.')
+            ->assertJsonPath('data.user.user_id', 1001)
+            ->assertJsonPath('data.user.email', 'admin@example.com');
+
+        $this->assertIsString($response->json('data.access_token'));
+        $this->assertIsString($response->json('data.refresh_token'));
+    }
+
+    public function test_refresh_admin_token_returns_unauthorized_for_invalid_refresh_token(): void
+    {
+        $response = $this->postJson('/api/public/auth/refresh', [
+            'refresh_token' => 'invalid-refresh-token',
+        ]);
+
+        $response
+            ->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Unauthorized: refresh token invalid or expired.',
+            ]);
+    }
+
+    public function test_refresh_admin_token_cannot_reuse_old_refresh_token_after_rotation(): void
+    {
+        User::factory()->create([
+            'user_id' => 1001,
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'status' => 'active',
+            'status_approval' => 'approved',
+        ]);
+
+        \App\Models\OTPVerification::query()->create([
+            'user_id' => 1001,
+            'email' => 'admin@example.com',
+            'otp' => '12345',
+            'valid_before' => now()->addMinutes(5),
+        ]);
+
+        $verifyResponse = $this->postJson('/api/public/auth/admin/verify-otp', [
+            'user_id' => 1001,
+            'otp' => '12345',
+        ]);
+
+        $oldRefreshToken = $verifyResponse->json('data.refresh_token');
+
+        $firstRefreshResponse = $this->postJson('/api/public/auth/refresh', [
+            'refresh_token' => $oldRefreshToken,
+        ]);
+
+        $firstRefreshResponse
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $secondRefreshResponse = $this->postJson('/api/public/auth/refresh', [
+            'refresh_token' => $oldRefreshToken,
+        ]);
+
+        $secondRefreshResponse
+            ->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Unauthorized: refresh token invalid or expired.',
+            ]);
     }
 }

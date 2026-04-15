@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\AdminLoginRequest;
 use App\Http\Requests\User\LoginRequest;
 use App\Http\Requests\User\MitraLoginRequest;
+use App\Http\Requests\User\RefreshTokenRequest;
 use App\Http\Requests\User\ResetPasswordRequest;
 use App\Http\Requests\User\ResendResetPasswordRequest;
 use App\Http\Requests\User\ValidateResetUrlRequest;
@@ -121,9 +122,12 @@ class AuthController extends Controller
         );
     }
 
-    public function refreshToken()
+    public function refreshToken(RefreshTokenRequest $request)
     {
-        $result = $this->authService->refreshToken();
+        $result = $this->authService->refreshToken(
+            $request->validated(),
+            (string) $request->bearerToken(),
+        );
 
         if (! $result['success']) {
             return ApiResponse::error(

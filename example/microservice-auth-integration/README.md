@@ -38,6 +38,37 @@ Saat microservice lain memanggil auth service internal, ada 2 header yang perlu 
 2. `X-User-Token: <JWT_USER>`
    JWT user asli yang datang dari request masuk ke microservice pemanggil.
 
+## Pisahkan 2 Flow Ini
+
+Supaya tidak membingungkan, ada 2 flow yang berbeda:
+
+1. `Login / refresh token flow`
+   Ini terjadi antara client dan auth service.
+2. `Internal authorization flow`
+   Ini terjadi antara microservice lain dan auth service.
+
+Folder example ini fokus ke flow nomor 2.
+
+## Flow Yang Lebih Ideal Untuk Auth User
+
+Kalau mau flow yang lebih rapi, saat login pertama kali auth service sebaiknya mengembalikan:
+
+- `access_token` atau JWT yang short-lived
+- `refresh_token` yang umur lebih panjang
+
+Lalu saat `access_token` expired:
+
+- client mengirim `refresh_token` ke auth service
+- auth service mengembalikan `access_token` baru
+- idealnya sekaligus rotate `refresh_token` baru juga
+
+Penting:
+
+- `refresh_token` dipakai hanya antara client dan auth service
+- `refresh_token` tidak perlu diteruskan ke microservice lain
+- microservice lain cukup menerima `access_token` user
+- saat microservice lain memanggil auth service internal, yang diteruskan hanya `X-User-Token` berisi `access_token` user
+
 ## Contoh Route Di Microservice Lain
 
 ```php

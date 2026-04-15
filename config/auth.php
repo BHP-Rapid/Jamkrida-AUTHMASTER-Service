@@ -119,4 +119,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh Token TTL
+    |--------------------------------------------------------------------------
+    |
+    | Masa berlaku refresh token dalam menit. Access token tetap mengikuti
+    | konfigurasi JWT package, sedangkan refresh token dikelola sendiri agar
+    | bisa dirotasi dan direvoke secara eksplisit.
+    |
+    */
+
+    'refresh_token_ttl' => (int) env('AUTH_REFRESH_TOKEN_TTL', 43200),
+
 ];

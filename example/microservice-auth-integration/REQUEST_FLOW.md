@@ -2,6 +2,32 @@
 
 Dokumen ini fokus ke contoh nyata saat microservice lain memanggil `api/internal` milik auth service.
 
+## Catatan Penting
+
+Flow di dokumen ini bukan flow login user.
+
+Dokumen ini hanya membahas:
+
+- bagaimana microservice lain meneruskan JWT user ke auth service
+- bagaimana microservice lain cek context
+- bagaimana microservice lain cek role
+- bagaimana microservice lain cek permission
+
+Kalau bicara flow auth yang lebih ideal, pisahannya seperti ini:
+
+1. Saat login pertama kali, auth service mengembalikan:
+   - `access_token` atau JWT dengan masa hidup pendek
+   - `refresh_token` dengan masa hidup lebih panjang
+2. Client memakai `access_token` untuk memanggil microservice lain.
+3. Saat `access_token` expired, client memanggil endpoint refresh ke auth service memakai `refresh_token`.
+4. Auth service mengembalikan `access_token` baru.
+5. Microservice lain tidak ikut memegang `refresh_token` user untuk call internal sehari-hari.
+
+Jadi untuk call internal:
+
+- `Authorization: Bearer <AUTH_INTERNAL_TOKEN>` = identitas service
+- `X-User-Token: <ACCESS_TOKEN_USER>` = identitas user
+
 ## Kasus Umum
 
 Misalnya microservice `penjaminan` punya endpoint:
@@ -18,14 +44,14 @@ Route::post('/penjaminan/create', [PenjaminanController::class, 'store'])
 User memanggil microservice `penjaminan` dengan:
 
 ```http
-Authorization: Bearer <JWT_USER>
+Authorization: Bearer <ACCESS_TOKEN_USER>
 ```
 
 Lalu microservice `penjaminan` akan memanggil auth service memakai:
 
 ```http
 Authorization: Bearer <AUTH_INTERNAL_TOKEN>
-X-User-Token: <JWT_USER>
+X-User-Token: <ACCESS_TOKEN_USER>
 ```
 
 ## Contoh Nyata
@@ -37,7 +63,7 @@ use Illuminate\Support\Facades\Http;
 
 $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
-        'X-User-Token' => $jwtUserToken,
+        'X-User-Token' => $accessTokenUser,
     ])
     ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/permissions/check', [
         'menu_code' => 'PENJAMINAN',
@@ -70,7 +96,7 @@ use Illuminate\Support\Facades\Http;
 
 $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
-        'X-User-Token' => $jwtUserToken,
+        'X-User-Token' => $accessTokenUser,
     ])
     ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/roles/check', [
         'roles' => ['admin', 'super_admin', 'admin_mitra'],
@@ -103,7 +129,7 @@ use Illuminate\Support\Facades\Http;
 
 $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
-        'X-User-Token' => $jwtUserToken,
+        'X-User-Token' => $accessTokenUser,
     ])
     ->get(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/users/ADM24001/context');
 ```
@@ -191,7 +217,7 @@ if (!($result['data']['allowed'] ?? false)) {
 ## Ringkasnya
 
 - request user ke microservice lain membawa JWT user
-- microservice lain meneruskan JWT user ke auth service lewat `X-User-Token`
+- microservice lain meneruskan access token user ke auth service lewat `X-User-Token`
 - microservice lain mengirim token antar-service lewat header `Authorization`
 - auth service melakukan validasi user, role, dan permission
 - hasilnya dipakai oleh middleware di microservice lain

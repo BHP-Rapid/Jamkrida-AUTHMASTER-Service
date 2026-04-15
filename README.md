@@ -39,6 +39,11 @@ Base URL: `/api`
 - Body:
   - `user_id` (required)
   - `otp` (required, digits:5)
+- Success response:
+  - `data.token` legacy access token alias
+  - `data.access_token` JWT access token
+  - `data.refresh_token` opaque refresh token
+  - `data.expires_in` access token TTL in seconds
 
 #### POST `/api/public/auth/mitra/login`
 - Body:
@@ -49,10 +54,19 @@ Base URL: `/api`
 - Body:
   - `user_id` (required, string)
   - `otp` (required, digits:5)
+- Success response:
+  - `data.token` legacy access token alias
+  - `data.access_token` JWT access token
+  - `data.refresh_token` opaque refresh token
+  - `data.expires_in` access token TTL in seconds
 
 #### POST `/api/public/auth/refresh`
 - Description: Refresh token.
-- Params: tidak ada
+- Body:
+  - `refresh_token` (nullable, string)
+- Notes:
+  - gunakan `refresh_token` untuk flow baru yang proper
+  - jika `refresh_token` tidak dikirim, endpoint masih menerima bearer access token lama sebagai fallback kompatibilitas
 
 #### GET `/api/public/auth/reset-password/validate`
 - Query:

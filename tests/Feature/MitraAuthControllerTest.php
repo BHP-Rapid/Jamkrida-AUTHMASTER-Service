@@ -161,6 +161,8 @@ class MitraAuthControllerTest extends TestCase
             ->assertJsonPath('data.user.email', 'mitra@example.com');
 
         $this->assertIsString($response->json('data.token'));
+        $this->assertIsString($response->json('data.access_token'));
+        $this->assertIsString($response->json('data.refresh_token'));
     }
 
     public function test_refresh_mitra_token_returns_new_token_payload(): void
@@ -191,6 +193,51 @@ class MitraAuthControllerTest extends TestCase
             ->assertJsonPath('data.user.mitra_id', 2001);
 
         $this->assertIsString($response->json('data.token'));
+        $this->assertIsString($response->json('data.refresh_token'));
+    }
+
+    public function test_refresh_mitra_token_accepts_refresh_token_payload(): void
+    {
+        UserMitra::query()->create([
+            'user_id' => 'MTR001',
+            'mitra_id' => 2001,
+            'name' => 'Mitra User',
+            'email' => 'mitra@example.com',
+            'password' => 'secret123',
+            'role' => 'mitra',
+            'status' => 'active',
+            'statusApproval' => 'approved',
+            'is_delete' => false,
+        ]);
+
+        \App\Models\OTPVerification::query()->create([
+            'user_id' => 'MTR001',
+            'email' => 'mitra@example.com',
+            'otp' => '12345',
+            'valid_before' => now()->addMinutes(5),
+        ]);
+
+        $verifyResponse = $this->postJson('/api/public/auth/mitra/verify-otp', [
+            'user_id' => 'MTR001',
+            'otp' => '12345',
+        ]);
+
+        $refreshToken = $verifyResponse->json('data.refresh_token');
+
+        $response = $this->postJson('/api/public/auth/refresh', [
+            'refresh_token' => $refreshToken,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Refresh token berhasil.')
+            ->assertJsonPath('data.user.user_id', 'MTR001')
+            ->assertJsonPath('data.user.email', 'mitra@example.com')
+            ->assertJsonPath('data.user.mitra_id', 2001);
+
+        $this->assertIsString($response->json('data.access_token'));
+        $this->assertIsString($response->json('data.refresh_token'));
     }
 
     public function test_ensure_mitra_middleware_allows_mitra_token_and_blocks_admin_token(): void
