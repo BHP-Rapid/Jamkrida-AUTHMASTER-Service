@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'jamkrida_daily'),
 
     /*
     |--------------------------------------------------------------------------
@@ -63,6 +63,12 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+        ],
+
+        'jamkrida_daily' => [
+            'driver' => 'custom',
+            'via' => App\Logging\JamkridaDailyLogger::class,
+            'level' => env('LOG_LEVEL', 'debug'),
         ],
 
         'daily' => [
