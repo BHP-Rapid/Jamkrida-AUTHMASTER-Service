@@ -30,10 +30,20 @@ class NotifAdminInternalController extends Controller
             );
         }
 
+        $data = $result['data'];
+
         return $this->successResponse(
-            data: $result['data'],
+            data: $data->items(),
             message: $result['message'],
             status: $result['status'],
+            extra: [
+                'meta' => [
+                    'total' => $data->total(),
+                    'per_page' => $data->perPage(),
+                    'current_page' => $data->currentPage(),
+                    'last_page' => $data->lastPage(),
+                ],
+            ],
         );
     }
 

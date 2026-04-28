@@ -11,13 +11,14 @@ class ApiResponse
         string $message = 'Request berhasil diproses.',
         int $status = 200,
         array $meta = [],
+        array $extra = [],
     ): JsonResponse {
-        return response()->json([
+        return response()->json(array_merge([
             'success' => true,
             'message' => $message,
             'data' => $data,
             'meta' => $meta,
-        ], $status);
+        ], $extra), $status);
     }
 
     public static function error(
@@ -25,12 +26,13 @@ class ApiResponse
         int $status = 500,
         array $errors = [],
         mixed $data = null,
+        array $extra = [],
     ): JsonResponse {
-        return response()->json([
+        return response()->json(array_merge([
             'success' => false,
             'message' => $message,
             'errors' => $errors,
             'data' => $data,
-        ], $status);
+        ], $extra), $status);
     }
 }

@@ -50,15 +50,19 @@ class UserAdminInternalController extends Controller
             );
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => $result['message'],
-            'data' => $result['data']['data'] ?? [],
-            'total' => $result['data']['total'] ?? 0,
-            'per_page' => $result['data']['per_page'] ?? 0,
-            'current_page' => $result['data']['current_page'] ?? 1,
-            'last_page' => $result['data']['last_page'] ?? 1,
-        ], $result['status']);
+        return $this->successResponse(
+            data: $result['data']['data'] ?? [],
+            message: $result['message'],
+            status: $result['status'],
+            extra: [
+                'meta' => [
+                    'total' => $result['data']['total'] ?? 0,
+                    'per_page' => $result['data']['per_page'] ?? 0,
+                    'current_page' => $result['data']['current_page'] ?? 1,
+                    'last_page' => $result['data']['last_page'] ?? 1,
+                ],
+            ],
+        );
     }
 
     public function storeRegister(AdminRegisterRequest $request)

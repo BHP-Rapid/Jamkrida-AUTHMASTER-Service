@@ -28,7 +28,19 @@ class NotifAdminController extends Controller
             );
         }
 
-        return response()->json($result['data'], $result['status']);
+        $data = $result['data'];
+
+        return ApiResponse::success(
+            data: $data->items(),
+            message: $result['message'],
+            status: $result['status'],
+            meta: [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+            ],
+        );
     }
 
     public function getMitraRecipient(GetMitraRecipientRequest $request)

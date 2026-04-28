@@ -47,6 +47,7 @@ class MitraAuthControllerTest extends TestCase
             Schema::create('tenant_mitra', function (Blueprint $table): void {
                 $table->id();
                 $table->unsignedBigInteger('mitra_id')->unique();
+                $table->string('tenant_id')->nullable();
                 $table->boolean('is_conventional')->default(false);
                 $table->boolean('is_syariah')->default(false);
                 $table->timestamps();
@@ -90,6 +91,7 @@ class MitraAuthControllerTest extends TestCase
 
         \Illuminate\Support\Facades\DB::table('tenant_mitra')->insert([
             'mitra_id' => 2001,
+            'tenant_id' => 'TNT001',
             'is_conventional' => true,
             'is_syariah' => false,
             'created_at' => now(),
@@ -130,6 +132,15 @@ class MitraAuthControllerTest extends TestCase
 
     public function test_verify_mitra_otp_returns_jwt_token(): void
     {
+        \Illuminate\Support\Facades\DB::table('tenant_mitra')->insert([
+            'mitra_id' => 2001,
+            'tenant_id' => 'TNT001',
+            'is_conventional' => true,
+            'is_syariah' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         UserMitra::query()->create([
             'user_id' => 'MTR001',
             'mitra_id' => 2001,
@@ -158,6 +169,7 @@ class MitraAuthControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.user_id', 'MTR001')
+            ->assertJsonPath('data.user.tenant_id', 'TNT001')
             ->assertJsonPath('data.user.email', 'mitra@example.com');
 
         $this->assertIsString($response->json('data.token'));

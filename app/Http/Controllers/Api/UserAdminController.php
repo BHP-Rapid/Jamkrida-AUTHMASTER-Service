@@ -48,14 +48,17 @@ class UserAdminController extends Controller
             );
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $result['data']['data'] ?? [],
-            'total' => $result['data']['total'] ?? 0,
-            'per_page' => $result['data']['per_page'] ?? 0,
-            'current_page' => $result['data']['current_page'] ?? 1,
-            'last_page' => $result['data']['last_page'] ?? 1,
-        ], $result['status']);
+        return ApiResponse::success(
+            data: $result['data']['data'] ?? [],
+            message: $result['message'] ?? 'Data verification retrieved successfully',
+            status: $result['status'],
+            meta: [
+                'total' => $result['data']['total'] ?? 0,
+                'per_page' => $result['data']['per_page'] ?? 0,
+                'current_page' => $result['data']['current_page'] ?? 1,
+                'last_page' => $result['data']['last_page'] ?? 1,
+            ],
+        );
     }
 
     public function storeRegister(AdminRegisterRequest $request)

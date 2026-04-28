@@ -57,4 +57,10 @@ return [
         'password' => env('CREATIO_PASSWORD'),
     ],
 
+    'secure' => [
+        'key' => env('AES_SECRET_KEY', 'bQ6Gs0OjSN0q119PYytRlYMvQ+3Ue71wTEa/0ldiH3M='),
+        'hash_key' => env('SECURE_HASH_KEY'),
+
+    ],
+
 ];

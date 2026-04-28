@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\AesHelper;
 use App\Mail\ResendEmailforResetPasswordMail;
 use App\Mail\SendOtpToMitra;
 use App\Models\User;
@@ -17,12 +18,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Facades\JWTAuth;
-
+use App\Models\TenantMitra; 
 class AuthService
 {
     public function __construct(
@@ -428,7 +430,7 @@ class AuthService
             ];
         }
 
-        $this->otpVerificationRepository->deleteById($otpRecord->getKey());
+        //$this->otpVerificationRepository->deleteById($otpRecord->getKey());
 
         return [
             'success' => true,
@@ -622,6 +624,7 @@ class AuthService
 
     protected function buildTokenPayload(object $user, string $accessToken, ?string $refreshToken = null): array
     {
+        $DataTenant = $this->resolveGetTenantNameAndMitrAliasForUser($user);
         return [
             'token' => $accessToken,
             'access_token' => $accessToken,
@@ -634,9 +637,12 @@ class AuthService
                 'id' => $user->id,
                 'user_id' => $user->user_id ?? $user->id,
                 'mitra_id' => $user->mitra_id ?? null,
+                'mitra_name' => $DataTenant['mitra_alias'] ?? null,
+                'tenant_id' => $DataTenant['tenant_id'] ?? null,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'tenant_name' => $DataTenant['tenant_name'] ?? null,
             ],
         ];
     }
@@ -706,6 +712,57 @@ class AuthService
     protected function resolveAuthTypeForUser(object $user): string
     {
         return $user instanceof UserMitra ? 'mitra' : 'admin';
+    }
+
+    protected function resolveTenantIdForUser(object $user): ?string
+    {
+        $tenantId = $user->tenant_id ?? null;
+
+        if ($tenantId !== null && $tenantId !== '') {
+            return (string) $tenantId;
+        }
+
+        $mitraId = $user->mitra_id ?? null;
+
+        if ($mitraId === null || $mitraId === '') {
+            return null;
+        }
+
+        if (
+            ! Schema::hasTable('tenant_mitra')
+            || ! Schema::hasColumn('tenant_mitra', 'tenant_id')
+            || ! Schema::hasColumn('tenant_mitra', 'mitra_id')
+        ) {
+            return null;
+        }
+
+        $tenantId = DB::table('tenant_mitra')
+            ->where('mitra_id', $mitraId)
+            ->value('tenant_id');
+
+        return $tenantId !== null && $tenantId !== '' ? (string) $tenantId : null;
+    }
+
+    protected function resolveGetTenantNameAndMitrAliasForUser(object $user): array
+    {
+        $tenantId = $this->resolveTenantIdForUser($user);
+
+        if ($tenantId === null) {
+            return [
+                'tenant_name' => null,
+                'mitra_alias' => null,
+            ];
+        }
+
+        $tenantRecord = DB::table('tenant_mitra')
+            ->where('tenant_id', $tenantId)
+            ->first(['name as tenant_name', 'alias as mitra_alias']);
+
+        return [
+            'tenant_id' => $tenantId,
+            'tenant_name' => $tenantRecord->tenant_name ?? null,
+            'mitra_alias' => $tenantRecord->mitra_alias ?? null,
+        ];
     }
 
     protected function resolveUserByAuthContext(string $authType, int|string $subjectId): User|UserMitra|null
