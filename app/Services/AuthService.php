@@ -37,47 +37,47 @@ class AuthService
     ) {
     }
 
-    public function login(array $credentials): array
-    {
-        $user = $this->userRepository->findByEmail((string) ($credentials['email'] ?? ''));
+    // public function login(array $credentials): array
+    // {
+    //     $user = $this->userRepository->findByEmail((string) ($credentials['email'] ?? ''));
 
-        if (! $user) {
-            return [
-                'success' => false,
-                'message' => 'User tidak ditemukan.',
-                'status' => 404,
-                'errors' => [
-                    'email' => ['Email tidak terdaftar.'],
-                ],
-            ];
-        }
+    //     if (! $user) {
+    //         return [
+    //             'success' => false,
+    //             'message' => 'User tidak ditemukan.',
+    //             'status' => 404,
+    //             'errors' => [
+    //                 'email' => ['Email tidak terdaftar.'],
+    //             ],
+    //         ];
+    //     }
 
-        $hashedPassword = (string) $user->password;
+    //     $hashedPassword = (string) $user->password;
 
-        if ($hashedPassword === '' || ! Hash::check((string) ($credentials['password'] ?? ''), $hashedPassword)) {
-            return [
-                'success' => false,
-                'message' => 'Password tidak valid.',
-                'status' => 422,
-                'errors' => [
-                    'password' => ['Password yang diberikan tidak sesuai.'],
-                ],
-            ];
-        }
+    //     if ($hashedPassword === '' || ! Hash::check((string) ($credentials['password'] ?? ''), $hashedPassword)) {
+    //         return [
+    //             'success' => false,
+    //             'message' => 'Password tidak valid.',
+    //             'status' => 422,
+    //             'errors' => [
+    //                 'password' => ['Password yang diberikan tidak sesuai.'],
+    //             ],
+    //         ];
+    //     }
 
-        return [
-            'success' => true,
-            'message' => 'Login berhasil.',
-            'status' => 200,
-            'data' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
-            ],
-        ];
-    }
+    //     return [
+    //         'success' => true,
+    //         'message' => 'Login berhasil.',
+    //         'status' => 200,
+    //         'data' => [
+    //             'user' => [
+    //                 'id' => $user->id,
+    //                 'name' => $user->name,
+    //                 'email' => $user->email,
+    //             ],
+    //         ],
+    //     ];
+    // }
 
     public function loginAdmin(array $credentials): array
     {
@@ -190,7 +190,7 @@ class AuthService
             'user_id' => $userIdentifier,
             'email' => $user->email,
             'otp' => (string) $otp,
-            'valid_before' => now()->addSeconds($otpDuration),
+            'valid_before' => now()->addMinutes($otpDuration),
         ]);
 
         Mail::to($user->email)->send(new SendOtpToMitra($otp, $userIdentifier));
@@ -371,7 +371,7 @@ class AuthService
                 'user_id' => $user->user_id,
                 'email' => $user->email,
                 'otp' => (string) $otp,
-                'valid_before' => now()->addSeconds($otpDuration),
+                'valid_before' => now()->addMinutes($otpDuration),
             ]);
 
             Mail::to($user->email)->send(new SendOtpToMitra($otp, $user->user_id));
@@ -430,7 +430,7 @@ class AuthService
             ];
         }
 
-        //$this->otpVerificationRepository->deleteById($otpRecord->getKey());
+        $this->otpVerificationRepository->deleteById($otpRecord->getKey());
 
         return [
             'success' => true,
