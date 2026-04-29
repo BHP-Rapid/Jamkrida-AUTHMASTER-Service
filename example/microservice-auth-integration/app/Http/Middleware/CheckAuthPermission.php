@@ -16,7 +16,7 @@ class CheckAuthPermission
     ) {
     }
 
-    public function handle(Request $request, Closure $next, string $menuIdentifier, string $action = 'view'): Response
+    public function handle(Request $request, Closure $next, string $menuIdentifier, string ...$actions): Response
     {
         $userToken = (string) $request->bearerToken();
 
@@ -30,7 +30,8 @@ class CheckAuthPermission
         }
 
         try {
-            $response = $this->authInternalClient->checkPermission($menuIdentifier, $action, $userToken);
+            $actions = $actions === [] ? ['view'] : $actions;
+            $response = $this->authInternalClient->checkPermission($menuIdentifier, $actions, $userToken);
             $allowed = (bool) ($response['data']['allowed'] ?? false);
 
             if (! $allowed) {

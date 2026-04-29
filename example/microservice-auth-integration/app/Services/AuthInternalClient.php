@@ -28,10 +28,10 @@ class AuthInternalClient
             ->json();
     }
 
-    public function checkPermission(string|int $menuIdentifier, string $action, string $userToken): array
+    public function checkPermission(string|int $menuIdentifier, string|array $actions, string $userToken): array
     {
         $payload = [
-            'action' => $action,
+            'actions' => $this->normalizePermissionActions($actions),
         ];
 
         if (is_numeric($menuIdentifier)) {
@@ -44,6 +44,18 @@ class AuthInternalClient
             ->post($this->baseUrl().'/api/internal/permissions/check', $payload)
             ->throw()
             ->json();
+    }
+
+    protected function normalizePermissionActions(string|array $actions): array
+    {
+        $items = is_array($actions) ? $actions : explode(',', $actions);
+
+        $normalizedActions = array_values(array_filter(
+            array_map(static fn (mixed $action): string => trim((string) $action), $items),
+            static fn (string $action): bool => $action !== '',
+        ));
+
+        return $normalizedActions === [] ? ['view'] : $normalizedActions;
     }
 
     protected function client(string $userToken): PendingRequest
