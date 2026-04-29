@@ -30,13 +30,13 @@ pipeline {
         stage('Setup & Deploy') {
             steps {
                 sh '''
-                    ${DOCKER_CMD} exec laravel-app composer install --no-interaction --prefer-dist --optimize-autoloader
-                    ${DOCKER_CMD} exec laravel-app composer update
-                    ${DOCKER_CMD} exec laravel-app php artisan config:cache
-                    ${DOCKER_CMD} exec laravel-app php artisan queue:work --daemon --quiet --sleep=3 --tries=3 &
+                    ${DOCKER_CMD} exec jjkt-auth composer install --no-interaction --prefer-dist --optimize-autoloader
+                    ${DOCKER_CMD} exec jjkt-auth composer update
+                    ${DOCKER_CMD} exec jjkt-auth php artisan config:cache
+                    ${DOCKER_CMD} exec jjkt-auth php artisan queue:work --daemon --quiet --sleep=3 --tries=3 &
                     
-                    ${DOCKER_CMD} exec laravel-app chmod -R 775 storage bootstrap/cache resources/lang
-                    ${DOCKER_CMD} exec laravel-app chown -R www-data:www-data storage bootstrap/cache resources/lang
+                    ${DOCKER_CMD} exec jjkt-auth chmod -R 775 storage bootstrap/cache resources/lang
+                    ${DOCKER_CMD} exec jjkt-auth chown -R www-data:www-data storage bootstrap/cache resources/lang
                 '''
             }
         }
@@ -44,7 +44,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                ${DOCKER_CMD} exec laravel_app bash -c "
+                ${DOCKER_CMD} exec jjkt-auth bash -c "
                 COMPOSER_MEMORY_LIMIT=512M \
                 ${DOCKER_CMD} install --no-dev --optimize-autoloader --no-interaction --prefer-dist
                 "

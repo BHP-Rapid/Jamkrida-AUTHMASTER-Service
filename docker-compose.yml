@@ -2,8 +2,8 @@ services:
   app:
     build:
       context: .
-    image: laravel-app
-    container_name: laravel-app
+    image: jjkt-auth
+    container_name: jjkt-auth
     restart: unless-stopped
     working_dir: /var/www
     volumes:
@@ -18,7 +18,7 @@ services:
     container_name: nginx-laravel
     restart: unless-stopped
     ports:
-      - "8989:80"
+      - "9101:80"
     volumes:
       - .:/var/www
       - ./docker/nginx/conf.d:/etc/nginx/conf.d
