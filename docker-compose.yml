@@ -15,7 +15,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: nginx-laravel
+    container_name: nginx-jjkt-auth
     restart: unless-stopped
     ports:
       - "9101:80"
