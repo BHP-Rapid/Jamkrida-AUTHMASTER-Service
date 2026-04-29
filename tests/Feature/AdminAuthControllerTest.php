@@ -182,6 +182,13 @@ class AdminAuthControllerTest extends TestCase
 
         $this->assertIsString($response->json('data.token'));
         $this->assertIsString($response->json('data.refresh_token'));
+
+        $tokenPayload = JWTAuth::setToken($response->json('data.access_token'))->getPayload();
+        $tokenUser = $tokenPayload->get('user');
+
+        $this->assertSame('admin', $tokenPayload->get('auth_type'));
+        $this->assertSame(1001, $tokenUser['user_id']);
+        $this->assertSame('Admin User', $tokenUser['name']);
     }
 
     public function test_refresh_admin_token_accepts_refresh_token_payload(): void

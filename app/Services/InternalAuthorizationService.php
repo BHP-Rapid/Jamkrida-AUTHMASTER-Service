@@ -6,6 +6,8 @@ use App\Repositories\MasterMenuRoleMappingRepository;
 use App\Repositories\MasterRoleRepository;
 use App\Repositories\UserMitraRepository;
 use App\Repositories\UserRepository;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class InternalAuthorizationService
 {
@@ -33,6 +35,7 @@ class InternalAuthorizationService
 
         $roleId = $this->resolveRoleId($user);
         $role = $this->resolveRole($user, $roleId);
+        $userClaim = $this->buildUserContextClaim($user);
 
         return [
             'id' => $user->getKey(),
@@ -45,7 +48,11 @@ class InternalAuthorizationService
             'role_code' => $role?->role_code,
             'role_name' => $role?->role_name,
             'mitra_id' => $user->mitra_id ?? null,
+            'mitra_name' => $userClaim['mitra_name'],
+            'tenant_id' => $userClaim['tenant_id'],
+            'tenant_name' => $userClaim['tenant_name'],
             'status' => $user->status ?? null,
+            'user' => $userClaim,
         ];
     }
 
@@ -148,5 +155,97 @@ class InternalAuthorizationService
         }
 
         return $this->masterRoleRepository->findByIdentifier((string) $user->role);
+    }
+
+    protected function buildUserContextClaim(object $user): array
+    {
+        $dataTenant = $this->resolveTenantContextForUser($user);
+
+        return [
+            'id' => $user->getKey(),
+            'user_id' => $user->user_id ?? $user->getKey(),
+            'mitra_id' => $user->mitra_id ?? null,
+            'mitra_name' => $dataTenant['mitra_alias'] ?? null,
+            'tenant_id' => $dataTenant['tenant_id'] ?? null,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'tenant_name' => $dataTenant['tenant_name'] ?? null,
+        ];
+    }
+
+    protected function resolveTenantContextForUser(object $user): array
+    {
+        $tenantId = $this->resolveTenantIdForUser($user);
+
+        if ($tenantId === null) {
+            return [
+                'tenant_id' => null,
+                'tenant_name' => null,
+                'mitra_alias' => null,
+            ];
+        }
+
+        if (
+            ! Schema::hasTable('tenant_mitra')
+            || ! Schema::hasColumn('tenant_mitra', 'tenant_id')
+        ) {
+            return [
+                'tenant_id' => $tenantId,
+                'tenant_name' => null,
+                'mitra_alias' => null,
+            ];
+        }
+
+        $selects = [];
+
+        if (Schema::hasColumn('tenant_mitra', 'name')) {
+            $selects[] = 'name as tenant_name';
+        }
+
+        if (Schema::hasColumn('tenant_mitra', 'alias')) {
+            $selects[] = 'alias as mitra_alias';
+        }
+
+        $tenantRecord = $selects === []
+            ? null
+            : DB::table('tenant_mitra')
+                ->where('tenant_id', $tenantId)
+                ->first($selects);
+
+        return [
+            'tenant_id' => $tenantId,
+            'tenant_name' => $tenantRecord->tenant_name ?? null,
+            'mitra_alias' => $tenantRecord->mitra_alias ?? null,
+        ];
+    }
+
+    protected function resolveTenantIdForUser(object $user): ?string
+    {
+        $tenantId = $user->tenant_id ?? null;
+
+        if ($tenantId !== null && $tenantId !== '') {
+            return (string) $tenantId;
+        }
+
+        $mitraId = $user->mitra_id ?? null;
+
+        if ($mitraId === null || $mitraId === '') {
+            return null;
+        }
+
+        if (
+            ! Schema::hasTable('tenant_mitra')
+            || ! Schema::hasColumn('tenant_mitra', 'tenant_id')
+            || ! Schema::hasColumn('tenant_mitra', 'mitra_id')
+        ) {
+            return null;
+        }
+
+        $tenantId = DB::table('tenant_mitra')
+            ->where('mitra_id', $mitraId)
+            ->value('tenant_id');
+
+        return $tenantId !== null && $tenantId !== '' ? (string) $tenantId : null;
     }
 }

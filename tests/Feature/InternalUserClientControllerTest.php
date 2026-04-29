@@ -172,7 +172,10 @@ class InternalUserClientControllerTest extends TestCase
             ->assertJsonPath('data.user_id', 'ADM001')
             ->assertJsonPath('data.auth_type', 'admin')
             ->assertJsonPath('data.role_id', 1)
-            ->assertJsonPath('data.role_code', 'admin');
+            ->assertJsonPath('data.role_code', 'admin')
+            ->assertJsonPath('data.user.user_id', 'ADM001')
+            ->assertJsonPath('data.user.name', 'Admin Context')
+            ->assertJsonPath('data.user.email', 'context-admin@example.com');
     }
 
     public function test_internal_permission_check_route_returns_allowed_status(): void

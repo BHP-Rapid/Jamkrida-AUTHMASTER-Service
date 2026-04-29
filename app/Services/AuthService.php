@@ -478,7 +478,9 @@ class AuthService
                 ];
             }
 
-            $newToken = JWTAuth::setToken($currentToken)->refresh();
+            $this->invalidateAccessTokenIfSupported($currentToken);
+
+            $newToken = $this->createAccessTokenForUser($user);
             $newRefreshToken = $this->createRefreshTokenForUser($user);
 
             return [
@@ -627,6 +629,17 @@ class AuthService
         return JWTAuth::claims([
             'user' => $this->buildJwtUserClaim($user),
         ])->fromUser($user);
+    }
+
+    protected function invalidateAccessTokenIfSupported(string $accessToken): void
+    {
+        try {
+            JWTAuth::setToken($accessToken)->invalidate();
+        } catch (JWTException $exception) {
+            if ($exception->getMessage() !== 'You must have the blacklist enabled to invalidate a token.') {
+                throw $exception;
+            }
+        }
     }
 
     protected function buildJwtUserClaim(object $user): array
