@@ -650,17 +650,17 @@ class AuthService
             'id' => $user->id,
             'user_id' => $user->user_id ?? $user->id,
             'mitra_id' => $user->mitra_id ?? null,
-            //'mitra_name' => $dataTenant['mitra_alias'] ?? null,
             'tenant_id' => $dataTenant['tenant_id'] ?? null,
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
-            //'tenant_name' => $dataTenant['tenant_name'] ?? null,
         ];
     }
 
     protected function buildTokenPayload(object $user, string $accessToken, ?string $refreshToken = null): array
     {
+        $dataTenant = $this->resolveGetTenantNameAndMitrAliasForUser($user);
+
         return [
             'token' => $accessToken,
             'access_token' => $accessToken,
@@ -673,10 +673,11 @@ class AuthService
                 'id' => $user->id,
                 'user_id' => $user->user_id ?? $user->id,
                 'mitra_id' => $user->mitra_id ?? null,
+                'tenant_id' => $dataTenant['tenant_id'] ?? null,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->role,            
-                ],
+                'role' => $user->role,
+            ],
         ];
     }
 

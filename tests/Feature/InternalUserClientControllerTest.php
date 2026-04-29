@@ -223,6 +223,50 @@ class InternalUserClientControllerTest extends TestCase
             ->assertJsonPath('data.user.role_code', 'admin');
     }
 
+    public function test_internal_permission_check_allows_any_requested_action(): void
+    {
+        $role = MasterRole::query()->create([
+            'id' => 1,
+            'role_code' => 'admin',
+            'role_name' => 'Administrator',
+            'type' => 'internal',
+        ]);
+
+        $menu = MasterMenu::query()->create([
+            'menu_code' => 'PENJAMINAN',
+            'title' => 'Penjaminan',
+        ]);
+
+        $user = User::factory()->create([
+            'user_id' => 'ADM001',
+            'role' => 'admin',
+            'role_id' => $role->id,
+        ]);
+
+        $userToken = JWTAuth::fromUser($user);
+
+        MasterMenuRoleMapping::query()->create([
+            'role_id' => $role->id,
+            'menu_id' => $menu->id,
+            'can_create' => true,
+            'can_edit' => false,
+        ]);
+
+        $response = $this->withToken('internal-authmaster-token')
+            ->withHeader('X-User-Token', $userToken)
+            ->postJson('/api/internal/permissions/check', [
+                'user_id' => 'ADM001',
+                'menu_code' => 'PENJAMINAN',
+                'action' => 'edit,create',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.allowed', true)
+            ->assertJsonPath('data.action', 'edit,create')
+            ->assertJsonPath('data.actions', ['edit', 'create']);
+    }
+
     public function test_internal_role_check_route_returns_allowed_status_for_mitra(): void
     {
         MasterRole::query()->create([

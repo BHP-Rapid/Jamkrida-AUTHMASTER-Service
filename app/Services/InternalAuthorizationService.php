@@ -35,7 +35,8 @@ class InternalAuthorizationService
 
         $roleId = $this->resolveRoleId($user);
         $role = $this->resolveRole($user, $roleId);
-        $userClaim = $this->buildUserContextClaim($user);
+        $dataTenant = $this->resolveTenantContextForUser($user);
+        $userClaim = $this->buildUserContextClaim($user, $dataTenant);
 
         return [
             'id' => $user->getKey(),
@@ -48,15 +49,15 @@ class InternalAuthorizationService
             'role_code' => $role?->role_code,
             'role_name' => $role?->role_name,
             'mitra_id' => $user->mitra_id ?? null,
-            'mitra_name' => $userClaim['mitra_name'],
-            'tenant_id' => $userClaim['tenant_id'],
-            'tenant_name' => $userClaim['tenant_name'],
+            'mitra_name' => $dataTenant['mitra_alias'] ?? null,
+            'tenant_id' => $dataTenant['tenant_id'] ?? null,
+            'tenant_name' => $dataTenant['tenant_name'] ?? null,
             'status' => $user->status ?? null,
             'user' => $userClaim,
-        ];
+            ];
     }
 
-    public function checkPermission(int|string $userId, int|string|null $menuIdentifier, string $action = 'view'): ?array
+    public function checkPermission(int|string $userId, int|string|null $menuIdentifier, string|array $actions = 'view'): ?array
     {
         $context = $this->getUserContext($userId);
 
@@ -65,18 +66,20 @@ class InternalAuthorizationService
         }
 
         $allowed = false;
+        $normalizedActions = $this->normalizePermissionActions($actions);
 
         if ($context['role_id'] !== null && $menuIdentifier !== null && $menuIdentifier !== '') {
-            $allowed = $this->masterMenuRoleMappingRepository->hasPermission(
+            $allowed = $this->masterMenuRoleMappingRepository->hasAnyPermission(
                 $context['role_id'],
                 $menuIdentifier,
-                $action,
+                $normalizedActions,
             );
         }
 
         return [
             'allowed' => $allowed,
-            'action' => $action,
+            'action' => implode(',', $normalizedActions),
+            'actions' => $normalizedActions,
             'menu_identifier' => $menuIdentifier,
             'user' => $context,
         ];
@@ -157,20 +160,30 @@ class InternalAuthorizationService
         return $this->masterRoleRepository->findByIdentifier((string) $user->role);
     }
 
-    protected function buildUserContextClaim(object $user): array
+    protected function normalizePermissionActions(string|array $actions): array
     {
-        $dataTenant = $this->resolveTenantContextForUser($user);
+        $items = is_array($actions) ? $actions : explode(',', $actions);
+
+        $normalizedActions = array_values(array_filter(
+            array_map(static fn (mixed $action): string => trim((string) $action), $items),
+            static fn (string $action): bool => $action !== '',
+        ));
+
+        return $normalizedActions === [] ? ['view'] : $normalizedActions;
+    }
+
+    protected function buildUserContextClaim(object $user, ?array $dataTenant = null): array
+    {
+        $dataTenant ??= $this->resolveTenantContextForUser($user);
 
         return [
             'id' => $user->getKey(),
             'user_id' => $user->user_id ?? $user->getKey(),
             'mitra_id' => $user->mitra_id ?? null,
-            'mitra_name' => $dataTenant['mitra_alias'] ?? null,
             'tenant_id' => $dataTenant['tenant_id'] ?? null,
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
-            'tenant_name' => $dataTenant['tenant_name'] ?? null,
         ];
     }
 

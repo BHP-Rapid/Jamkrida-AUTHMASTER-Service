@@ -49,6 +49,8 @@ class AuthorizationInternalController extends Controller
             'menu_code' => ['nullable', 'string'],
             'menu_id' => ['nullable'],
             'action' => ['nullable', 'string'],
+            'actions' => ['nullable', 'array'],
+            'actions.*' => ['required', 'string'],
         ]);
 
         $resolvedUserId = $this->resolveForwardedUserId($request, $validated['user_id'] ?? null);
@@ -61,7 +63,7 @@ class AuthorizationInternalController extends Controller
         $result = $this->internalAuthorizationService->checkPermission(
             $resolvedUserId,
             $menuIdentifier,
-            (string) ($validated['action'] ?? 'view'),
+            $validated['actions'] ?? (string) ($validated['action'] ?? 'view'),
         );
 
         if (! $result) {
