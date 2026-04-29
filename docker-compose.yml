@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+    image: laravel-app
+    container_name: laravel-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+    networks:
+      - laravel
+      - mysql_network
+      - localstack_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-laravel
+    restart: unless-stopped
+    ports:
+      - "8989:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - app
+    networks:
+      - laravel
+
+networks:
+  laravel:
+    driver: bridge
+  mysql_network:
+    external: true
+    name: mysql-docker_default
+  localstack_network:
+    external: true
+    name: localstack-s3_default
+
+volumes:
+  dbdata:
