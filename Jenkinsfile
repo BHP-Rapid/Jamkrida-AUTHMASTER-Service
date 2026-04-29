@@ -40,8 +40,8 @@ pipeline {
                     ${DOCKER_CMD} exec jjkt-auth php artisan config:cache
                     ${DOCKER_CMD} exec jjkt-auth php artisan queue:work --daemon --quiet --sleep=3 --tries=3 &
                     
-                    ${DOCKER_CMD} exec jjkt-auth chmod -R 775 storage bootstrap/cache resources/lang
-                    ${DOCKER_CMD} exec jjkt-auth chown -R www-data:www-data storage bootstrap/cache resources/lang
+                    ${DOCKER_CMD} exec jjkt-auth chmod -R 775 storage bootstrap/cache 
+                    ${DOCKER_CMD} exec jjkt-auth chown -R www-data:www-data storage bootstrap/cache 
                 '''
             }
         }
