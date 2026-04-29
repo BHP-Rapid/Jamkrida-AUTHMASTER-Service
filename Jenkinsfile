@@ -30,9 +30,10 @@ pipeline {
         stage('Setup & Deploy') {
             steps {
                 sh '''
-                    ${DOCKER_CMD} exec -u root jjkt-auth bash -c 
+                    ${DOCKER_CMD} exec -u root jjkt-auth bash -c "
                     chown -R www-data:www-data /var/www &&
                     chmod -R 775 /var/www
+                    "
 
                     ${DOCKER_CMD} exec jjkt-auth composer install --no-interaction --prefer-dist --optimize-autoloader
                     ${DOCKER_CMD} exec jjkt-auth composer update
