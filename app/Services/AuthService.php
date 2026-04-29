@@ -616,10 +616,34 @@ class AuthService
 
     protected function issueTokenPair(object $user): array
     {
-        $accessToken = JWTAuth::fromUser($user);
+        $accessToken = $this->createAccessTokenForUser($user);
         $refreshToken = $this->createRefreshTokenForUser($user);
 
         return $this->buildTokenPayload($user, $accessToken, $refreshToken);
+    }
+
+    protected function createAccessTokenForUser(object $user): string
+    {
+        return JWTAuth::claims([
+            'user' => $this->buildJwtUserClaim($user),
+        ])->fromUser($user);
+    }
+
+    protected function buildJwtUserClaim(object $user): array
+    {
+        $dataTenant = $this->resolveGetTenantNameAndMitrAliasForUser($user);
+
+        return [
+            'id' => $user->id,
+            'user_id' => $user->user_id ?? $user->id,
+            'mitra_id' => $user->mitra_id ?? null,
+            'mitra_name' => $dataTenant['mitra_alias'] ?? null,
+            'tenant_id' => $dataTenant['tenant_id'] ?? null,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'tenant_name' => $dataTenant['tenant_name'] ?? null,
+        ];
     }
 
     protected function buildTokenPayload(object $user, string $accessToken, ?string $refreshToken = null): array
@@ -687,7 +711,7 @@ class AuthService
         }
 
         return DB::transaction(function () use ($storedToken, $user): array {
-            $accessToken = JWTAuth::fromUser($user);
+            $accessToken = $this->createAccessTokenForUser($user);
             $newRefreshToken = bin2hex(random_bytes(48));
 
             $replacementToken = $this->refreshTokenRepository->create([

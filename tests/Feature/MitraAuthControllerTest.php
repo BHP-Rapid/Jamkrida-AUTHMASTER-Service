@@ -175,6 +175,15 @@ class MitraAuthControllerTest extends TestCase
         $this->assertIsString($response->json('data.token'));
         $this->assertIsString($response->json('data.access_token'));
         $this->assertIsString($response->json('data.refresh_token'));
+
+        $tokenUser = JWTAuth::setToken($response->json('data.access_token'))
+            ->getPayload()
+            ->get('user');
+
+        $this->assertSame('MTR001', $tokenUser['user_id']);
+        $this->assertSame(2001, $tokenUser['mitra_id']);
+        $this->assertSame('Mitra User', $tokenUser['name']);
+        $this->assertSame('mitra@example.com', $tokenUser['email']);
     }
 
     public function test_refresh_mitra_token_returns_new_token_payload(): void
