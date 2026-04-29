@@ -661,7 +661,6 @@ class AuthService
 
     protected function buildTokenPayload(object $user, string $accessToken, ?string $refreshToken = null): array
     {
-        $DataTenant = $this->resolveGetTenantNameAndMitrAliasForUser($user);
         return [
             'token' => $accessToken,
             'access_token' => $accessToken,
@@ -674,13 +673,9 @@ class AuthService
                 'id' => $user->id,
                 'user_id' => $user->user_id ?? $user->id,
                 'mitra_id' => $user->mitra_id ?? null,
-                'mitra_name' => $DataTenant['mitra_alias'] ?? null,
-                'tenant_id' => $DataTenant['tenant_id'] ?? null,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->role,
-                'tenant_name' => $DataTenant['tenant_name'] ?? null,
-            ],
+                'role' => $user->role,            ],
         ];
     }
 
