@@ -50,8 +50,8 @@ pipeline {
             steps {
                 sh '''
                 ${DOCKER_CMD} exec jjkt-auth bash -c "
-                COMPOSER_MEMORY_LIMIT=512M \
-                ${DOCKER_CMD} install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+                COMPOSER_MEMORY_LIMIT=512K \
+                composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
                 "
                 '''
             }
