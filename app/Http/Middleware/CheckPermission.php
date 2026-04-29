@@ -48,7 +48,9 @@ class CheckPermission
             );
         }
 
-        $actions = $actions === [] ? ['view'] : $actions;
+        if ($actions === []) {
+            $actions = ['view'];
+        }
 
         if (! $this->masterMenuRoleMappingRepository->hasAnyPermission($roleId, $menuId, $actions)) {
             return ApiResponse::error(

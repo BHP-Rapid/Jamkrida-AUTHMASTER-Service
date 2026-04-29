@@ -82,6 +82,12 @@ Route::prefix('penjaminan')->group(function (): void {
             'auth.role:admin,super_admin,admin_mitra',
             'auth.permission:PENJAMINAN,create',
         ]);
+
+    Route::put('/{id}', [PenjaminanController::class, 'update'])
+        ->middleware([
+            'auth.context',
+            'auth.permission:PENJAMINAN,edit,create',
+        ]);
 });
 ```
 

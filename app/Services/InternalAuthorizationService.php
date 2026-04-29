@@ -54,7 +54,7 @@ class InternalAuthorizationService
             'tenant_name' => $dataTenant['tenant_name'] ?? null,
             'status' => $user->status ?? null,
             'user' => $userClaim,
-            ];
+        ];
     }
 
     public function checkPermission(int|string $userId, int|string|null $menuIdentifier, string|array $actions = 'view'): ?array
@@ -169,7 +169,11 @@ class InternalAuthorizationService
             static fn (string $action): bool => $action !== '',
         ));
 
-        return $normalizedActions === [] ? ['view'] : $normalizedActions;
+        if ($normalizedActions === []) {
+            return ['view'];
+        }
+
+        return $normalizedActions;
     }
 
     protected function buildUserContextClaim(object $user, ?array $dataTenant = null): array

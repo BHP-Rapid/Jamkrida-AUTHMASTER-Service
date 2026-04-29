@@ -538,7 +538,10 @@ Sama dengan `/api/public/mitra-users` namun tanpa JWT and using `internal.user`.
   - `user_id` (nullable)
   - `menu_code` (nullable, string)
   - `menu_id` (nullable)
-  - `action` (nullable, string)
+  - `action` (nullable, string, contoh: `view` atau `edit,create`)
+  - `actions` (nullable, array, contoh: `["edit", "create"]`)
+
+Jika `action` berisi beberapa value dipisah koma atau `actions` berisi array, permission dicek sebagai OR. User cukup punya salah satu permission yang diminta.
 
 #### POST `/api/internal/roles/check`
 - Body:

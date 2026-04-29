@@ -155,6 +155,74 @@ Contoh response sukses:
 }
 ```
 
+### 4. GET data dengan where/filter
+
+Untuk endpoint list, user tetap memanggil microservice lain memakai JWT user. Filter `where` dikirim sebagai query parameter ke microservice tersebut, bukan ke auth service.
+
+Contoh route di microservice `penjaminan`:
+
+```php
+Route::get('/penjaminan', [PenjaminanController::class, 'index'])
+    ->middleware([
+        'auth.context',
+        'auth.permission:PENJAMINAN,view',
+    ]);
+```
+
+Contoh request dari client ke microservice:
+
+```http
+GET /api/penjaminan?where[status]=active&where[mitra_id]=145c9591-c7cf-45fe-a8c1-9f620f992d5d
+Authorization: Bearer <ACCESS_TOKEN_USER>
+Accept: application/json
+```
+
+Contoh membaca `where` di controller microservice:
+
+```php
+public function index(Request $request)
+{
+    $where = $request->query('where', []);
+
+    $query = Penjaminan::query();
+
+    if (! empty($where['status'])) {
+        $query->where('status', $where['status']);
+    }
+
+    if (! empty($where['mitra_id'])) {
+        $query->where('mitra_id', $where['mitra_id']);
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Data penjaminan berhasil diambil.',
+        'data' => $query->paginate((int) $request->query('per_page', 10)),
+    ]);
+}
+```
+
+Kalau microservice perlu call service lain lagi dengan query yang sama:
+
+```php
+$response = Http::withToken($accessTokenUser)
+    ->acceptJson()
+    ->get($penjaminanServiceUrl.'/api/penjaminan', [
+        'where' => [
+            'status' => 'active',
+            'mitra_id' => '145c9591-c7cf-45fe-a8c1-9f620f992d5d',
+        ],
+        'page' => 1,
+        'per_page' => 10,
+    ]);
+```
+
+Catatan:
+
+- auth service hanya dipakai untuk cek user/context/role/permission
+- filter `where` diproses oleh microservice pemilik data
+- permission untuk GET list biasanya cukup `auth.permission:PENJAMINAN,view`
+
 ## Contoh Di Dalam Middleware Microservice Lain
 
 ### AuthenticateAuthContext
@@ -201,7 +269,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ])
     ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/permissions/check', [
         'menu_code' => 'PENJAMINAN',
-        'action' => 'create',
+        'actions' => ['edit', 'create'],
     ]);
 
 $result = $response->throw()->json();

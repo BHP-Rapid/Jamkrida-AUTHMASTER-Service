@@ -55,7 +55,11 @@ class AuthInternalClient
             static fn (string $action): bool => $action !== '',
         ));
 
-        return $normalizedActions === [] ? ['view'] : $normalizedActions;
+        if ($normalizedActions === []) {
+            return ['view'];
+        }
+
+        return $normalizedActions;
     }
 
     protected function client(string $userToken): PendingRequest

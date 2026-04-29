@@ -30,7 +30,10 @@ class CheckAuthPermission
         }
 
         try {
-            $actions = $actions === [] ? ['view'] : $actions;
+            if ($actions === []) {
+                $actions = ['view'];
+            }
+
             $response = $this->authInternalClient->checkPermission($menuIdentifier, $actions, $userToken);
             $allowed = (bool) ($response['data']['allowed'] ?? false);
 
