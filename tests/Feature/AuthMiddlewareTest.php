@@ -90,6 +90,10 @@ class AuthMiddlewareTest extends TestCase
         Route::middleware(['jwt.auth', 'check.permission:USR_LIST,view'])->get('/api/testing/permission-by-code', function () {
             return response()->json(['success' => true]);
         });
+
+        Route::middleware(['jwt.auth', 'check.permission:PENJAMINAN,edit,create'])->put('/api/testing/permission-any', function () {
+            return response()->json(['success' => true]);
+        });
     }
 
     public function test_jwt_auth_middleware_rejects_missing_token(): void
@@ -223,5 +227,39 @@ class AuthMiddlewareTest extends TestCase
                 'success' => false,
                 'message' => 'Forbidden: insufficient permission.',
             ]);
+    }
+
+    public function test_check_permission_allows_any_configured_action(): void
+    {
+        $role = MasterRole::query()->create([
+            'id' => 1,
+            'role_code' => 'admin',
+            'role_name' => 'Administrator',
+            'type' => 'internal',
+        ]);
+
+        $menu = MasterMenu::query()->create([
+            'menu_code' => 'PENJAMINAN',
+            'title' => 'Penjaminan',
+            'is_active' => true,
+        ]);
+
+        MasterMenuRoleMapping::query()->create([
+            'role_id' => $role->id,
+            'menu_id' => $menu->id,
+            'can_create' => true,
+            'can_edit' => false,
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'admin',
+            'role_id' => $role->id,
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withToken($token)->putJson('/api/testing/permission-any');
+
+        $response->assertOk()->assertJson(['success' => true]);
     }
 }

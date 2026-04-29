@@ -37,6 +37,17 @@ class MasterMenuRoleMappingRepository
         };
     }
 
+    public function hasAnyPermission(int|string $roleId, int|string $menuIdentifier, array $actions): bool
+    {
+        foreach ($actions as $action) {
+            if ($this->hasPermission($roleId, $menuIdentifier, (string) $action)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function findByRoleId(int|string $roleId): Collection
     {
         return MasterMenuRoleMapping::query()

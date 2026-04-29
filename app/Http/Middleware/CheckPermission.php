@@ -19,7 +19,7 @@ class CheckPermission
     ) {
     }
 
-    public function handle(Request $request, Closure $next, string $menuIdentifier, string $action = 'view'): Response
+    public function handle(Request $request, Closure $next, string $menuIdentifier, string ...$actions): Response
     {
         $user = $request->user();
 
@@ -48,7 +48,9 @@ class CheckPermission
             );
         }
 
-        if (! $this->masterMenuRoleMappingRepository->hasPermission($roleId, $menuId, $action)) {
+        $actions = $actions === [] ? ['view'] : $actions;
+
+        if (! $this->masterMenuRoleMappingRepository->hasAnyPermission($roleId, $menuId, $actions)) {
             return ApiResponse::error(
                 message: 'Forbidden: insufficient permission.',
                 status: 403,

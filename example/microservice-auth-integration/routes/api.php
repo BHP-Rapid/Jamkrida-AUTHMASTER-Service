@@ -21,6 +21,7 @@ Route::prefix('penjaminan')->group(function (): void {
         ->middleware([
             'auth.context',
             'auth.permission:PENJAMINAN,edit',
+            'auth.permission:PENJAMINAN,create',
         ]);
 
     Route::delete('/{id}', [PenjaminanController::class, 'destroy'])
