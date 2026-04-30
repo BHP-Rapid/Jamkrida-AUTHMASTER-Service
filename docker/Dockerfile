@@ -59,6 +59,11 @@ RUN chown -R www-data:www-data /var/www
 
 RUN COMPOSER_MEMORY_LIMIT=-1 composer install --no-dev --optimize-autoloader
 
+RUN mkdir -p /var/www/storage \
+    /var/www/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+
 EXPOSE 80
 
 CMD ["/usr/bin/supervisord"]
