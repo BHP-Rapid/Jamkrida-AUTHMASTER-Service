@@ -12,7 +12,7 @@ use App\Http\Controllers\Internal\UserInternalController;
 use App\Http\Controllers\Internal\UserMitraInternalController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('internal')->middleware('internal.service')->group(function (): void {
+Route::prefix('int')->middleware('internal.service')->group(function (): void {
     Route::get('/users/{user}', [UserInternalController::class, 'show']);
     Route::post('/admin-users/register', [UserAdminInternalController::class, 'storeRegister']);
     Route::post('/mitra-users/register', [UserMitraInternalController::class, 'storeRegister']);

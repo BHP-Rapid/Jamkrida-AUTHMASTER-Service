@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\UserMitraController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('public')
+Route::prefix('pub')
     ->group(function (): void {
         Route::get('/bank-values', [PublicController::class, 'index']);
         Route::match(['get', 'post'], '/check-id', [PublicController::class, 'checkId']);
