@@ -127,7 +127,7 @@ class MappingValueControllerTest extends TestCase
 
     public function test_internal_mapping_value_route_requires_internal_service_token(): void
     {
-        $response = $this->getJson('/api/internal/master/mapping-values');
+        $response = $this->getJson('/api/int/master/mapping-values');
 
         $response
             ->assertUnauthorized()
@@ -143,7 +143,7 @@ class MappingValueControllerTest extends TestCase
         ]);
 
         $response = $this->withToken('internal-authmaster-token')
-            ->getJson('/api/internal/master/mapping-values');
+            ->getJson('/api/int/master/mapping-values');
 
         $response
             ->assertUnauthorized()
@@ -167,7 +167,7 @@ class MappingValueControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->getJson('/api/internal/master/mapping-values');
+            ->getJson('/api/int/master/mapping-values');
 
         $response
             ->assertOk()
@@ -186,7 +186,7 @@ class MappingValueControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->getJson('/api/internal/master/provinces?name=Jawa');
+            ->getJson('/api/int/master/provinces?name=Jawa');
 
         $response
             ->assertOk()

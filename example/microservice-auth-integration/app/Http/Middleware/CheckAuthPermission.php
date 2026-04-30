@@ -30,7 +30,10 @@ class CheckAuthPermission
         }
 
         try {
-            if ($actions === []) {
+            if ($this->isPermissionExpression($menuIdentifier)) {
+                $menuIdentifier = $this->buildPermissionExpression($menuIdentifier, $actions);
+                $actions = [];
+            } elseif ($actions === []) {
                 $actions = ['view'];
             }
 
@@ -64,5 +67,19 @@ class CheckAuthPermission
                 'data' => null,
             ], 403);
         }
+    }
+
+    protected function isPermissionExpression(string $value): bool
+    {
+        return str_contains($value, '=');
+    }
+
+    protected function buildPermissionExpression(string $menuIdentifier, array $actions): string
+    {
+        if ($actions === []) {
+            return $menuIdentifier;
+        }
+
+        return $menuIdentifier.','.implode(',', $actions);
     }
 }

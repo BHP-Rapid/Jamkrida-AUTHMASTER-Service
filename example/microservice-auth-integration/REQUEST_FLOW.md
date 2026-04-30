@@ -1,6 +1,6 @@
 ## Request Flow Internal Auth
 
-Dokumen ini fokus ke contoh nyata saat microservice lain memanggil `api/internal` milik auth service.
+Dokumen ini fokus ke contoh nyata saat microservice lain memanggil `api/int` milik auth service.
 
 ## Catatan Penting
 
@@ -65,7 +65,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $accessTokenUser,
     ])
-    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/permissions/check', [
+    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/int/permissions/check', [
         'menu_code' => 'PENJAMINAN',
         'action' => 'create',
     ]);
@@ -98,7 +98,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $accessTokenUser,
     ])
-    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/roles/check', [
+    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/int/roles/check', [
         'roles' => ['admin', 'super_admin', 'admin_mitra'],
     ]);
 ```
@@ -131,7 +131,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $accessTokenUser,
     ])
-    ->get(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/users/ADM24001/context');
+    ->get(rtrim(config('services.auth_internal.url'), '/') . '/api/int/users/ADM24001/context');
 ```
 
 Kalau `user_id` belum ada, biasanya microservice lain decode payload JWT dulu atau pakai helper seperti `AuthInternalClient`.
@@ -232,7 +232,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $userToken,
     ])
-    ->get(rtrim(config('services.auth_internal.url'), '/') . "/api/internal/users/{$userId}/context");
+    ->get(rtrim(config('services.auth_internal.url'), '/') . "/api/int/users/{$userId}/context");
 
 $context = $response->throw()->json();
 
@@ -246,7 +246,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $userToken,
     ])
-    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/roles/check', [
+    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/int/roles/check', [
         'roles' => ['admin', 'super_admin'],
     ]);
 
@@ -267,7 +267,7 @@ $response = Http::withToken(config('services.auth_internal.token'))
     ->withHeaders([
         'X-User-Token' => $userToken,
     ])
-    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/internal/permissions/check', [
+    ->post(rtrim(config('services.auth_internal.url'), '/') . '/api/int/permissions/check', [
         'menu_code' => 'PENJAMINAN',
         'actions' => ['edit', 'create'],
     ]);

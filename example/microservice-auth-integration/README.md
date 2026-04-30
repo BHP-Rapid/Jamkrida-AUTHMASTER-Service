@@ -17,7 +17,7 @@ File yang disediakan:
 - `.env.example`
   Contoh environment variable yang perlu diisi
 - `app/Services/AuthInternalClient.php`
-  Client wrapper untuk memanggil endpoint `api/internal`
+  Client wrapper untuk memanggil endpoint `api/int`
 - `app/Http/Middleware/AuthenticateAuthContext.php`
   Middleware untuk ambil context user dari auth service
 - `app/Http/Middleware/CheckAuthRole.php`
@@ -88,8 +88,21 @@ Route::prefix('penjaminan')->group(function (): void {
             'auth.context',
             'auth.permission:PENJAMINAN,edit,create',
         ]);
+
+    Route::get('/claim', [PenjaminanController::class, 'claim'])
+        ->middleware([
+            'auth.context',
+            'auth.role:mitra,head_admin_mitra',
+            'auth.permission:mitra=mitra.claim:view,create|head_admin_mitra=head_admin_mitra.claim:view',
+        ]);
 });
 ```
+
+Catatan:
+
+- `auth.permission:PENJAMINAN,edit,create` berarti OR action: boleh `edit` atau `create`.
+- Kalau butuh AND, pasang middleware permission terpisah: `auth.permission:PENJAMINAN,edit` dan `auth.permission:PENJAMINAN,create`.
+- Format role-specific seperti `mitra=mitra.claim:view,create|head_admin_mitra=head_admin_mitra.claim:view` juga boleh pakai koma untuk multi-action.
 
 ## Kapan Pakai File Ini
 

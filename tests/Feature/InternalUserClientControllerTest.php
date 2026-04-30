@@ -96,7 +96,7 @@ class InternalUserClientControllerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->getJson("/api/internal/users/{$user->id}");
+        $response = $this->getJson("/api/int/users/{$user->id}");
 
         $response
             ->assertUnauthorized()
@@ -115,7 +115,7 @@ class InternalUserClientControllerTest extends TestCase
         ]);
 
         $response = $this->withToken('internal-authmaster-token')
-            ->getJson("/api/internal/users/{$user->id}");
+            ->getJson("/api/int/users/{$user->id}");
 
         $response
             ->assertOk()
@@ -133,7 +133,7 @@ class InternalUserClientControllerTest extends TestCase
     public function test_internal_user_route_returns_not_found_when_user_missing(): void
     {
         $response = $this->withToken('internal-authmaster-token')
-            ->getJson('/api/internal/users/999999');
+            ->getJson('/api/int/users/999999');
 
         $response
             ->assertNotFound()
@@ -165,7 +165,7 @@ class InternalUserClientControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->getJson('/api/internal/users/ADM001/context');
+            ->getJson('/api/int/users/ADM001/context');
 
         $response
             ->assertOk()
@@ -210,7 +210,7 @@ class InternalUserClientControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->postJson('/api/internal/permissions/check', [
+            ->postJson('/api/int/permissions/check', [
                 'user_id' => 'ADM001',
                 'menu_code' => 'USR_LIST',
                 'action' => 'view',
@@ -254,7 +254,7 @@ class InternalUserClientControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->postJson('/api/internal/permissions/check', [
+            ->postJson('/api/int/permissions/check', [
                 'user_id' => 'ADM001',
                 'menu_code' => 'PENJAMINAN',
                 'action' => 'edit,create',
@@ -265,6 +265,64 @@ class InternalUserClientControllerTest extends TestCase
             ->assertJsonPath('data.allowed', true)
             ->assertJsonPath('data.action', 'edit,create')
             ->assertJsonPath('data.actions', ['edit', 'create']);
+    }
+
+    public function test_internal_permission_check_allows_role_specific_permission_expression(): void
+    {
+        MasterRole::query()->create([
+            'id' => 1,
+            'role_code' => 'mitra',
+            'role_name' => 'Mitra',
+            'type' => 'external',
+        ]);
+
+        $headAdminRole = MasterRole::query()->create([
+            'id' => 2,
+            'role_code' => 'head_admin_mitra',
+            'role_name' => 'Head Admin Mitra',
+            'type' => 'external',
+        ]);
+
+        MasterMenu::query()->create([
+            'menu_code' => 'mitra.claim',
+            'title' => 'Mitra Claim',
+        ]);
+
+        $headAdminMenu = MasterMenu::query()->create([
+            'menu_code' => 'head_admin_mitra.claim',
+            'title' => 'Head Admin Mitra Claim',
+        ]);
+
+        $user = UserMitra::query()->create([
+            'user_id' => 'MTR001',
+            'mitra_id' => 2001,
+            'name' => 'Head Admin Mitra',
+            'email' => 'head-admin-mitra@example.com',
+            'role' => 'head_admin_mitra',
+            'status' => 'active',
+            'statusApproval' => 'approved',
+        ]);
+
+        MasterMenuRoleMapping::query()->create([
+            'role_id' => $headAdminRole->id,
+            'menu_id' => $headAdminMenu->id,
+            'can_view' => false,
+            'can_create' => true,
+        ]);
+
+        $userToken = JWTAuth::fromUser($user);
+
+        $response = $this->withToken('internal-authmaster-token')
+            ->withHeader('X-User-Token', $userToken)
+            ->postJson('/api/int/permissions/check', [
+                'menu_code' => 'mitra=mitra.claim:view,create|head_admin_mitra=head_admin_mitra.claim:view,create',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.allowed', true)
+            ->assertJsonPath('data.action', 'view,create')
+            ->assertJsonPath('data.menu_identifier', 'head_admin_mitra.claim');
     }
 
     public function test_internal_role_check_route_returns_allowed_status_for_mitra(): void
@@ -290,7 +348,7 @@ class InternalUserClientControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->postJson('/api/internal/roles/check', [
+            ->postJson('/api/int/roles/check', [
                 'user_id' => 'MTR001',
                 'roles' => ['mitra', '5'],
             ]);
@@ -305,7 +363,7 @@ class InternalUserClientControllerTest extends TestCase
     public function test_internal_context_route_requires_forwarded_user_token(): void
     {
         $response = $this->withToken('internal-authmaster-token')
-            ->getJson('/api/internal/users/ADM001/context');
+            ->getJson('/api/int/users/ADM001/context');
 
         $response
             ->assertUnauthorized()
@@ -340,7 +398,7 @@ class InternalUserClientControllerTest extends TestCase
 
         $response = $this->withToken('internal-authmaster-token')
             ->withHeader('X-User-Token', $userToken)
-            ->postJson('/api/internal/permissions/check', [
+            ->postJson('/api/int/permissions/check', [
                 'user_id' => $otherUser->user_id,
                 'menu_code' => 'USR_LIST',
                 'action' => 'view',

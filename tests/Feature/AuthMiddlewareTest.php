@@ -94,6 +94,14 @@ class AuthMiddlewareTest extends TestCase
         Route::middleware(['jwt.auth', 'check.permission:PENJAMINAN,edit,create'])->put('/api/testing/permission-any', function () {
             return response()->json(['success' => true]);
         });
+
+        Route::middleware([
+            'jwt.auth',
+            'check.role:mitra,head_admin_mitra',
+            'check.permission:mitra=mitra.claim:view,create|head_admin_mitra=head_admin_mitra.claim:view,create',
+        ])->get('/api/testing/permission-by-role', function () {
+            return response()->json(['success' => true]);
+        });
     }
 
     public function test_jwt_auth_middleware_rejects_missing_token(): void
@@ -259,6 +267,53 @@ class AuthMiddlewareTest extends TestCase
         $token = JWTAuth::fromUser($user);
 
         $response = $this->withToken($token)->putJson('/api/testing/permission-any');
+
+        $response->assertOk()->assertJson(['success' => true]);
+    }
+
+    public function test_check_permission_allows_role_specific_permission_expression(): void
+    {
+        MasterRole::query()->create([
+            'id' => 1,
+            'role_code' => 'mitra',
+            'role_name' => 'Mitra',
+            'type' => 'external',
+        ]);
+
+        $headAdminRole = MasterRole::query()->create([
+            'id' => 2,
+            'role_code' => 'head_admin_mitra',
+            'role_name' => 'Head Admin Mitra',
+            'type' => 'external',
+        ]);
+
+        MasterMenu::query()->create([
+            'menu_code' => 'mitra.claim',
+            'title' => 'Mitra Claim',
+            'is_active' => true,
+        ]);
+
+        $headAdminMenu = MasterMenu::query()->create([
+            'menu_code' => 'head_admin_mitra.claim',
+            'title' => 'Head Admin Mitra Claim',
+            'is_active' => true,
+        ]);
+
+        MasterMenuRoleMapping::query()->create([
+            'role_id' => $headAdminRole->id,
+            'menu_id' => $headAdminMenu->id,
+            'can_view' => false,
+            'can_create' => true,
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'head_admin_mitra',
+            'role_id' => $headAdminRole->id,
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withToken($token)->getJson('/api/testing/permission-by-role');
 
         $response->assertOk()->assertJson(['success' => true]);
     }

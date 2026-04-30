@@ -13,7 +13,7 @@ class AuthInternalClient
         $userId = $this->resolveUserIdFromToken($userToken);
 
         return $this->client($userToken)
-            ->get($this->baseUrl()."/api/internal/users/{$userId}/context")
+            ->get($this->baseUrl()."/api/int/users/{$userId}/context")
             ->throw()
             ->json();
     }
@@ -21,7 +21,7 @@ class AuthInternalClient
     public function checkRole(array $roles, string $userToken): array
     {
         return $this->client($userToken)
-            ->post($this->baseUrl().'/api/internal/roles/check', [
+            ->post($this->baseUrl().'/api/int/roles/check', [
                 'roles' => $roles,
             ])
             ->throw()
@@ -30,18 +30,22 @@ class AuthInternalClient
 
     public function checkPermission(string|int $menuIdentifier, string|array $actions, string $userToken): array
     {
-        $payload = [
-            'actions' => $this->normalizePermissionActions($actions),
-        ];
+        $payload = [];
 
-        if (is_numeric($menuIdentifier)) {
+        if (is_string($menuIdentifier) && $this->isPermissionExpression($menuIdentifier)) {
+            $payload['menu_code'] = $this->buildPermissionExpression($menuIdentifier, $actions);
+        } elseif (is_numeric($menuIdentifier)) {
             $payload['menu_id'] = $menuIdentifier;
         } else {
             $payload['menu_code'] = $menuIdentifier;
         }
 
+        if (! (is_string($menuIdentifier) && $this->isPermissionExpression($menuIdentifier))) {
+            $payload['actions'] = $this->normalizePermissionActions($actions);
+        }
+
         return $this->client($userToken)
-            ->post($this->baseUrl().'/api/internal/permissions/check', $payload)
+            ->post($this->baseUrl().'/api/int/permissions/check', $payload)
             ->throw()
             ->json();
     }
@@ -60,6 +64,22 @@ class AuthInternalClient
         }
 
         return $normalizedActions;
+    }
+
+    protected function isPermissionExpression(string $value): bool
+    {
+        return str_contains($value, '=');
+    }
+
+    protected function buildPermissionExpression(string $menuIdentifier, string|array $actions): string
+    {
+        $normalizedActions = $this->normalizePermissionActions($actions);
+
+        if ($normalizedActions === ['view']) {
+            return $menuIdentifier;
+        }
+
+        return $menuIdentifier.','.implode(',', $normalizedActions);
     }
 
     protected function client(string $userToken): PendingRequest

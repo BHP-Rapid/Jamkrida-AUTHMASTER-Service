@@ -68,7 +68,13 @@ class InternalAuthorizationService
         $allowed = false;
         $normalizedActions = $this->normalizePermissionActions($actions);
 
-        if ($context['role_id'] !== null && $menuIdentifier !== null && $menuIdentifier !== '') {
+        if (is_string($menuIdentifier) && $this->isPermissionExpression($menuIdentifier)) {
+            $expression = $this->buildPermissionExpression($menuIdentifier, $normalizedActions);
+            $expressionResult = $this->checkPermissionExpression($context, $expression);
+            $allowed = $expressionResult['allowed'];
+            $normalizedActions = $expressionResult['actions'];
+            $menuIdentifier = $expressionResult['menu_identifier'];
+        } elseif ($context['role_id'] !== null && $menuIdentifier !== null && $menuIdentifier !== '') {
             $allowed = $this->masterMenuRoleMappingRepository->hasAnyPermission(
                 $context['role_id'],
                 $menuIdentifier,
@@ -158,6 +164,105 @@ class InternalAuthorizationService
         }
 
         return $this->masterRoleRepository->findByIdentifier((string) $user->role);
+    }
+
+    protected function isPermissionExpression(string $value): bool
+    {
+        return str_contains($value, '=');
+    }
+
+    protected function buildPermissionExpression(string $menuIdentifier, array $actions): string
+    {
+        if ($actions === ['view']) {
+            return $menuIdentifier;
+        }
+
+        return $menuIdentifier.','.implode(',', $actions);
+    }
+
+    protected function checkPermissionExpression(array $context, string $expression): array
+    {
+        $matchedActions = ['view'];
+        $matchedMenuIdentifier = $expression;
+
+        foreach ($this->parsePermissionExpression($expression) as $spec) {
+            if ($spec['role'] !== null && ! $this->roleMatchesContext($context, $spec['role'])) {
+                continue;
+            }
+
+            $matchedActions = $spec['actions'];
+            $matchedMenuIdentifier = $spec['menu'];
+
+            if (
+                $context['role_id'] !== null
+                && $this->masterMenuRoleMappingRepository->hasAnyPermission(
+                    $context['role_id'],
+                    $spec['menu'],
+                    $spec['actions'],
+                )
+            ) {
+                return [
+                    'allowed' => true,
+                    'actions' => $spec['actions'],
+                    'menu_identifier' => $spec['menu'],
+                ];
+            }
+        }
+
+        return [
+            'allowed' => false,
+            'actions' => $matchedActions,
+            'menu_identifier' => $matchedMenuIdentifier,
+        ];
+    }
+
+    protected function parsePermissionExpression(string $expression): array
+    {
+        $specs = [];
+
+        foreach (explode('|', $expression) as $rawSpec) {
+            $rawSpec = trim($rawSpec);
+
+            if ($rawSpec === '') {
+                continue;
+            }
+
+            $roleIdentifier = null;
+            $permissionSpec = $rawSpec;
+
+            if (str_contains($permissionSpec, '=')) {
+                [$roleIdentifier, $permissionSpec] = explode('=', $permissionSpec, 2);
+                $roleIdentifier = trim($roleIdentifier);
+            }
+
+            [$menuIdentifier, $actionExpression] = array_pad(explode(':', $permissionSpec, 2), 2, 'view');
+
+            $menuIdentifier = trim($menuIdentifier);
+
+            if ($menuIdentifier === '') {
+                continue;
+            }
+
+            $specs[] = [
+                'role' => $roleIdentifier !== '' ? $roleIdentifier : null,
+                'menu' => $menuIdentifier,
+                'actions' => $this->normalizePermissionActions(preg_split('/[,+]/', $actionExpression) ?: []),
+            ];
+        }
+
+        return $specs;
+    }
+
+    protected function roleMatchesContext(array $context, string $roleIdentifier): bool
+    {
+        $roleIdentifiers = array_filter([
+            isset($context['role']) ? (string) $context['role'] : null,
+            isset($context['role_id']) ? (string) $context['role_id'] : null,
+            isset($context['role_code']) ? (string) $context['role_code'] : null,
+            isset($context['role_name']) ? (string) $context['role_name'] : null,
+        ], static fn (?string $value): bool => $value !== null && $value !== '');
+
+        return in_array($roleIdentifier, $roleIdentifiers, true);
     }
 
     protected function normalizePermissionActions(string|array $actions): array
